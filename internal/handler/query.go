@@ -39,6 +39,7 @@ func (h *QueryHandler) Query(c *gin.Context) {
 			"amount":       order.Amount,
 			"payment_type": order.PaymentType,
 			"qr_code_url":  order.QRCodeURL,
+			"pay_url":       order.PayURL,
 			"expires_at":   order.ExpiresAt,
 			"paid_at":      order.PaidAt,
 			"completed_at": order.CompletedAt,

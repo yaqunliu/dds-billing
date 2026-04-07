@@ -32,9 +32,25 @@ type UserInfo struct {
 }
 
 type apiResponse struct {
-	Code    int             `json:"code"`
+	Code    json.RawMessage `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
+}
+
+// isSuccess 判断 code 是否表示成功（数字 0 或字符串 "0"）
+func (r *apiResponse) isSuccess() bool {
+	s := string(r.Code)
+	return s == "0" || s == `"0"`
+}
+
+// codeString 返回 code 的字符串表示
+func (r *apiResponse) codeString() string {
+	s := string(r.Code)
+	// 去掉 JSON 字符串的引号
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // VerifyUser 用 token 调 Sub2API 验证用户身份
@@ -60,8 +76,8 @@ func (c *Client) VerifyUser(token string) (*UserInfo, error) {
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return nil, fmt.Errorf("parse sub2api response: %w, body: %s", err, string(body))
 	}
-	if apiResp.Code != 0 {
-		return nil, fmt.Errorf("sub2api auth failed: code=%d, msg=%s", apiResp.Code, apiResp.Message)
+	if !apiResp.isSuccess() {
+		return nil, fmt.Errorf("sub2api auth failed: code=%s, msg=%s", apiResp.codeString(), apiResp.Message)
 	}
 
 	var user UserInfo
@@ -118,8 +134,8 @@ func (c *Client) Recharge(orderNo string, userID int64, amount float64) error {
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return fmt.Errorf("parse recharge response: %w, body: %s", err, string(body))
 	}
-	if apiResp.Code != 0 {
-		return fmt.Errorf("sub2api recharge failed: code=%d, msg=%s", apiResp.Code, apiResp.Message)
+	if !apiResp.isSuccess() {
+		return fmt.Errorf("sub2api recharge failed: code=%s, msg=%s", apiResp.codeString(), apiResp.Message)
 	}
 
 	return nil

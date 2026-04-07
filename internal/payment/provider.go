@@ -1,6 +1,12 @@
 package payment
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrEventIgnored 表示该回调事件不需要处理（非错误，应返回 200）
+var ErrEventIgnored = errors.New("event ignored")
 
 type PaymentType string
 

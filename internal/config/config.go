@@ -56,6 +56,9 @@ type StripeConfig struct {
 	SecretKey      string `yaml:"secret_key"`
 	PublishableKey string `yaml:"publishable_key"`
 	WebhookSecret  string `yaml:"webhook_secret"`
+	NotifyURL      string `yaml:"notify_url"`
+	SuccessURL     string `yaml:"success_url"`
+	CancelURL      string `yaml:"cancel_url"`
 }
 
 type Sub2APIConfig struct {

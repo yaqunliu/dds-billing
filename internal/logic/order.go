@@ -37,6 +37,7 @@ type CreateOrderResponse struct {
 	Amount    float64 `json:"amount"`
 	Status    string  `json:"status"`
 	QRCodeURL string  `json:"qr_code_url"`
+	PayURL    string  `json:"pay_url"`
 	ExpiresAt string  `json:"expires_at"`
 }
 
@@ -88,6 +89,7 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 		Provider:    provider.Name(),
 		TradeNo:     payResp.TradeNo,
 		QRCodeURL:   payResp.QRCodeURL,
+		PayURL:      payResp.PayURL,
 		ExpiresAt:   expiresAt,
 	}
 	if err := l.orderRepo.Create(order); err != nil {
@@ -101,6 +103,7 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 		Amount:    req.Amount,
 		Status:    string(model.OrderStatusPending),
 		QRCodeURL: payResp.QRCodeURL,
+		PayURL:    payResp.PayURL,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
 	}, nil
 }

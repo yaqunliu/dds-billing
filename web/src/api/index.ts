@@ -16,6 +16,7 @@ export interface OrderData {
   amount: number
   status: string
   qr_code_url: string
+  pay_url: string
   expires_at: string
   paid_at?: string
 }

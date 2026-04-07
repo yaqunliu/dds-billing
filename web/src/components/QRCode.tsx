@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { getOrder } from '../api'
 
 interface Props {
   orderNo: string
   qrCodeUrl: string
+  payUrl: string
   expiresAt: string
   paymentType: 'wxpay' | 'alipay'
   isDark: boolean
   onClose: () => void
 }
 
-export default function QRCodeModal({ orderNo, qrCodeUrl, expiresAt, paymentType, isDark, onClose }: Props) {
+export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, paymentType, isDark, onClose }: Props) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [remaining, setRemaining] = useState(0)
@@ -70,6 +72,10 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, expiresAt, paymentType
   const payLabel = paymentType === 'wxpay' ? '微信' : '支付宝'
   const payColor = paymentType === 'wxpay' ? 'text-green-500' : 'text-blue-500'
 
+  // 优先使用渠道返回的二维码图片，没有则从 payUrl 生成
+  const hasImageQR = !!qrCodeUrl
+  const qrValue = qrCodeUrl || payUrl
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
@@ -94,10 +100,16 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, expiresAt, paymentType
         {status === 'pending' && (
           <>
             {/* QR Code */}
-            <div className={`mx-auto my-4 w-[220px] h-[220px] rounded-xl overflow-hidden border
-              ${isDark ? 'border-gray-700 bg-white' : 'border-gray-200'}`}
+            <div className={`mx-auto my-4 w-[220px] h-[220px] rounded-xl overflow-hidden border flex items-center justify-center
+              ${isDark ? 'border-gray-700 bg-white' : 'border-gray-200 bg-white'}`}
             >
-              <img src={qrCodeUrl} alt="支付二维码" className="w-full h-full object-contain" />
+              {hasImageQR ? (
+                <img src={qrCodeUrl} alt="支付二维码" className="w-full h-full object-contain" />
+              ) : qrValue ? (
+                <QRCodeSVG value={qrValue} size={200} level="M" />
+              ) : (
+                <p className="text-gray-400 text-sm">二维码加载中...</p>
+              )}
             </div>
 
             {/* Countdown */}

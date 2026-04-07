@@ -31,11 +31,14 @@ zpay:
   secret_key: ""
   notify_url: ""
 
-# Stripe（预留）
+# Stripe（支持微信/支付宝）
 stripe:
-  secret_key: ""
-  publishable_key: ""
-  webhook_secret: ""
+  secret_key: "sk_test_xxx"               # Stripe Secret Key
+  publishable_key: "pk_test_xxx"           # Stripe Publishable Key
+  webhook_secret: "whsec_xxx"              # Stripe Webhook Signing Secret
+  notify_url: "https://your-domain.com/api/notify/stripe"
+  success_url: "https://your-domain.com/pay/result"  # 支付成功跳转
+  cancel_url: "https://your-domain.com/pay"           # 取消支付跳转
 
 # ========== Sub2API ==========
 sub2api:

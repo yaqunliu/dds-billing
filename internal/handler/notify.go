@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -45,9 +46,21 @@ func (h *NotifyHandler) Handle(c *gin.Context) {
 		return
 	}
 
+	// Build params map with headers (needed by Stripe for webhook signature)
+	notifyParams := map[string]string{}
+	if sig := c.GetHeader("Stripe-Signature"); sig != "" {
+		notifyParams["Stripe-Signature"] = sig
+	}
+
 	// Verify signature and parse notification
-	notification, err := provider.VerifyNotification(c.Request.Context(), body, nil)
+	notification, err := provider.VerifyNotification(c.Request.Context(), body, notifyParams)
 	if err != nil {
+		// 不关心的事件类型，返回 200 避免重试
+		if errors.Is(err, payment.ErrEventIgnored) {
+			log.Printf("[notify] %s: %v", providerName, err)
+			c.String(http.StatusOK, "SUCCESS")
+			return
+		}
 		log.Printf("[notify] verify failed for %s: %v", providerName, err)
 		c.String(http.StatusBadRequest, "FAIL")
 		return
