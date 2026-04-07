@@ -1,0 +1,96 @@
+package handler
+
+import (
+	"io"
+	"log"
+	"net/http"
+	"time"
+
+	"dds-billing/internal/logic"
+	"dds-billing/internal/model"
+	"dds-billing/internal/payment"
+	"dds-billing/internal/repo"
+
+	"github.com/gin-gonic/gin"
+)
+
+type NotifyHandler struct {
+	orderRepo      *repo.OrderRepo
+	rechargeLogic  *logic.RechargeLogic
+}
+
+func NewNotifyHandler(orderRepo *repo.OrderRepo, rechargeLogic *logic.RechargeLogic) *NotifyHandler {
+	return &NotifyHandler{
+		orderRepo:     orderRepo,
+		rechargeLogic: rechargeLogic,
+	}
+}
+
+// Handle 通用支付回调处理 POST /api/notify/:provider
+func (h *NotifyHandler) Handle(c *gin.Context) {
+	providerName := c.Param("provider")
+
+	provider, ok := payment.Get(providerName)
+	if !ok {
+		log.Printf("[notify] unknown provider: %s", providerName)
+		c.String(http.StatusBadRequest, "FAIL")
+		return
+	}
+
+	// Read body
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.Printf("[notify] read body error: %v", err)
+		c.String(http.StatusBadRequest, "FAIL")
+		return
+	}
+
+	// Verify signature and parse notification
+	notification, err := provider.VerifyNotification(c.Request.Context(), body, nil)
+	if err != nil {
+		log.Printf("[notify] verify failed for %s: %v", providerName, err)
+		c.String(http.StatusBadRequest, "FAIL")
+		return
+	}
+
+	log.Printf("[notify] payment confirmed: order=%s, trade=%s, amount=%s, type=%s",
+		notification.OrderNo, notification.TradeNo, notification.Amount, notification.PaymentType)
+
+	// Find order
+	order, err := h.orderRepo.GetByOrderNo(notification.OrderNo)
+	if err != nil {
+		log.Printf("[notify] order not found: %s, err: %v", notification.OrderNo, err)
+		c.String(http.StatusOK, "SUCCESS")
+		return
+	}
+
+	// Skip if already processed
+	if order.Status != model.OrderStatusPending {
+		log.Printf("[notify] order %s already in status %s, skip", notification.OrderNo, order.Status)
+		c.String(http.StatusOK, "SUCCESS")
+		return
+	}
+
+	// Update order to paid
+	now := time.Now()
+	err = h.orderRepo.UpdateStatus(notification.OrderNo, model.OrderStatusPaid, map[string]interface{}{
+		"trade_no":    notification.TradeNo,
+		"pay_no":      notification.PayNo,
+		"paid_at":     now,
+		"notify_data": string(body),
+	})
+	if err != nil {
+		log.Printf("[notify] update order %s failed: %v", notification.OrderNo, err)
+		c.String(http.StatusInternalServerError, "FAIL")
+		return
+	}
+
+	// Call Sub2API to recharge (async, don't block callback response)
+	go func() {
+		if err := h.rechargeLogic.ProcessRecharge(notification.OrderNo); err != nil {
+			log.Printf("[notify] recharge order %s failed: %v", notification.OrderNo, err)
+		}
+	}()
+
+	c.String(http.StatusOK, "SUCCESS")
+}

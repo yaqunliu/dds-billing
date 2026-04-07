@@ -1,0 +1,49 @@
+server:
+  port: 3000
+  mode: debug # debug / release
+
+database:
+  dsn: "user:password@tcp(localhost:3306)/dds_billing?charset=utf8mb4&parseTime=True&loc=Local"
+
+# ========== 支付渠道配置 ==========
+payment:
+  provider: "ltzf" # ltzf / easypay / zpay / stripe
+  enabled_types:
+    - wxpay
+    - alipay
+
+# 蓝兔支付
+ltzf:
+  mch_id: "你的蓝兔商户号"
+  secret_key: "你的蓝兔商户密钥"
+  notify_url: "https://your-domain.com/api/notify/ltzf"
+
+# 易支付（预留）
+easypay:
+  pid: ""
+  pkey: ""
+  api_base: ""
+  notify_url: ""
+
+# ZPAY（预留）
+zpay:
+  mch_id: ""
+  secret_key: ""
+  notify_url: ""
+
+# Stripe（预留）
+stripe:
+  secret_key: ""
+  publishable_key: ""
+  webhook_secret: ""
+
+# ========== Sub2API ==========
+sub2api:
+  base_url: "http://localhost:8080"
+  admin_api_key: "从Sub2API管理后台获取"
+
+# ========== 业务规则 ==========
+billing:
+  min_amount: 1.00
+  max_amount: 5000.00
+  order_timeout_minutes: 5
