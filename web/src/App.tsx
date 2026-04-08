@@ -3,23 +3,26 @@ import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom'
 import Pay from './pages/Pay'
 import Result from './pages/Result'
 import Orders from './pages/Orders'
+import { normalizeLang } from './utils/i18n'
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [searchParams] = useSearchParams()
   const theme = searchParams.get('theme') || 'light'
   const uiMode = searchParams.get('ui_mode') || 'standalone'
+  const lang = normalizeLang(searchParams.get('lang') || 'zh')
 
   useEffect(() => {
     // Apply dark class for Tailwind dark mode if needed
     document.documentElement.setAttribute('data-theme', theme)
     document.documentElement.setAttribute('data-ui-mode', uiMode)
+    document.documentElement.lang = lang
 
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }, [theme, uiMode])
+  }, [theme, uiMode, lang])
 
   return <>{children}</>
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { getOrder } from '../api'
+import { QRCODE_MESSAGES, pickLocale } from '../utils/locale'
 
 interface Props {
   orderNo: string
@@ -10,10 +11,20 @@ interface Props {
   expiresAt: string
   paymentType: 'wxpay' | 'alipay'
   isDark: boolean
+  lang: 'zh' | 'en'
   onClose: () => void
 }
 
-export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, paymentType, isDark, onClose }: Props) {
+export default function QRCodeModal({
+  orderNo,
+  qrCodeUrl,
+  payUrl,
+  expiresAt,
+  paymentType,
+  isDark,
+  lang,
+  onClose,
+}: Props) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [remaining, setRemaining] = useState(0)
@@ -68,8 +79,8 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, pay
 
   const minutes = Math.floor(remaining / 60)
   const seconds = remaining % 60
-
-  const payLabel = paymentType === 'wxpay' ? '微信' : '支付宝'
+  const t = pickLocale(QRCODE_MESSAGES, lang)
+  const payLabel = t.paymentLabels[paymentType]
   const payColor = paymentType === 'wxpay' ? 'text-green-500' : 'text-blue-500'
 
   // 优先使用渠道返回的二维码图片，没有则从 payUrl 生成
@@ -93,7 +104,7 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, pay
 
         {/* Title */}
         <h3 className={`text-center text-lg font-semibold mb-1 ${payColor}`}>
-          {payLabel}扫码支付
+          {t.scanTitle(payLabel)}
         </h3>
 
         {/* Status display */}
@@ -104,23 +115,21 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, pay
               ${isDark ? 'border-gray-700 bg-white' : 'border-gray-200 bg-white'}`}
             >
               {hasImageQR ? (
-                <img src={qrCodeUrl} alt="支付二维码" className="w-full h-full object-contain" />
+                <img src={qrCodeUrl} alt={t.qrAlt} className="w-full h-full object-contain" />
               ) : qrValue ? (
                 <QRCodeSVG value={qrValue} size={200} level="M" />
               ) : (
-                <p className="text-gray-400 text-sm">二维码加载中...</p>
+                <p className="text-gray-400 text-sm">{t.qrLoading}</p>
               )}
             </div>
 
             {/* Countdown */}
             <div className="text-center">
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                请在 <span className="font-mono font-bold text-orange-500">
-                  {minutes}:{seconds.toString().padStart(2, '0')}
-                </span> 内完成支付
+                {t.countdownText(`${minutes}:${seconds.toString().padStart(2, '0')}`)}
               </p>
               <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                订单号：{orderNo}
+                {t.orderNo}: {orderNo}
               </p>
             </div>
           </>
@@ -129,28 +138,28 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, pay
         {status === 'paid' && (
           <div className="text-center py-10">
             <div className="text-5xl mb-4">&#10003;</div>
-            <p className="text-lg font-medium text-green-500">支付成功</p>
-            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>正在充值到账...</p>
+            <p className="text-lg font-medium text-green-500">{t.paymentSuccess}</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t.recharging}</p>
           </div>
         )}
 
         {status === 'completed' && (
           <div className="text-center py-10">
             <div className="text-5xl mb-4">&#10003;</div>
-            <p className="text-lg font-medium text-green-500">充值完成</p>
-            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>即将跳转...</p>
+            <p className="text-lg font-medium text-green-500">{t.rechargeComplete}</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t.redirecting}</p>
           </div>
         )}
 
         {status === 'expired' && (
           <div className="text-center py-10">
             <div className="text-5xl mb-4 text-gray-400">&#9201;</div>
-            <p className={`text-lg font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>订单已过期</p>
+            <p className={`text-lg font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t.orderExpired}</p>
             <button
               onClick={onClose}
               className="mt-4 px-6 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
             >
-              重新下单
+              {t.placeOrderAgain}
             </button>
           </div>
         )}
@@ -158,15 +167,15 @@ export default function QRCodeModal({ orderNo, qrCodeUrl, payUrl, expiresAt, pay
         {status === 'failed' && (
           <div className="text-center py-10">
             <div className="text-5xl mb-4 text-red-400">&#10007;</div>
-            <p className="text-lg font-medium text-red-500">充值失败</p>
+            <p className="text-lg font-medium text-red-500">{t.rechargeFailed}</p>
             <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              如已扣款，请联系客服处理
+              {t.supportTip}
             </p>
             <button
               onClick={onClose}
               className="mt-4 px-6 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
             >
-              返回
+              {t.back}
             </button>
           </div>
         )}
