@@ -2,17 +2,14 @@ import { useState, useEffect } from "react";
 import { useUrlParams } from "../hooks/useUrlParams";
 import { getConfig, createOrder, type AppConfig } from "../api";
 import QRCodeModal from "../components/QRCode";
-import alipayIcon from "../assets/alipay.jpg";
-import wechatIcon from "../assets/wechat.png";
-import { QUICK_AMOUNTS } from "../utils/constant";
+import { QUICK_AMOUNTS, PAYMENT_TYPE_CONFIG } from "../utils/constant";
 import { normalizeLang } from "../utils/i18n";
 import { PAY_MESSAGES, pickLocale } from "../utils/locale";
 
 export default function Pay() {
   const { token, theme, lang } = useUrlParams();
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [customAmount, setCustomAmount] = useState("");
+  const [amount, setAmount] = useState<number | string>("");
   const [paymentType, setPaymentType] = useState<"wxpay" | "alipay">("wxpay");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,33 +29,27 @@ export default function Pay() {
       .catch(() => {});
   }, []);
 
-  const amount = customAmount ? parseFloat(customAmount) : selectedAmount;
   const isAmountValid =
-    amount !== null &&
-    !isNaN(amount!) &&
-    amount! >= (config?.min_amount ?? 1) &&
-    amount! <= (config?.max_amount ?? 20000);
+    amount !== "" &&
+    !isNaN(Number(amount)) &&
+    Number(amount) >= (config?.min_amount ?? 1) &&
+    Number(amount) <= (config?.max_amount ?? 20000);
 
   const enabledTypes = config?.enabled_types ?? ["wxpay", "alipay"];
   const isDark = theme === "dark";
   const appLang = normalizeLang(lang);
   const t = pickLocale(PAY_MESSAGES, appLang);
 
-  const handleSelectAmount = (val: number) => {
-    setSelectedAmount(val);
-    setCustomAmount("");
-    setError("");
-  };
-
-  const handleCustomAmountChange = (val: string) => {
-    setCustomAmount(val);
-    setSelectedAmount(null);
+  const handleAmountChange = (val: number | string) => {
+    setAmount(val);
     setError("");
   };
 
   const handleSubmit = async () => {
     if (!amount || !isAmountValid) {
-      setError(t.amountRange(config?.min_amount ?? 1, config?.max_amount ?? 20000));
+      setError(
+        t.amountRange(config?.min_amount ?? 1, config?.max_amount ?? 20000),
+      );
       return;
     }
     if (!token) {
@@ -71,7 +62,7 @@ export default function Pay() {
     try {
       const res = await createOrder({
         token,
-        amount,
+        amount: Number(amount),
         payment_type: paymentType,
       });
       if (res.data.code === 0) {
@@ -107,10 +98,10 @@ export default function Pay() {
             {QUICK_AMOUNTS.map((val) => (
               <button
                 key={val}
-                onClick={() => handleSelectAmount(val)}
+                onClick={() => handleAmountChange(val)}
                 className={`py-3 rounded-lg text-lg font-medium transition-all border
                   ${
-                    selectedAmount === val && !customAmount
+                    amount === val
                       ? "bg-blue-600 text-white border-blue-600 shadow-md"
                       : isDark
                         ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-blue-500"
@@ -137,8 +128,8 @@ export default function Pay() {
             </span>
             <input
               type="number"
-              value={customAmount}
-              onChange={(e) => handleCustomAmountChange(e.target.value)}
+              value={amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
               placeholder={`${config?.min_amount ?? 1} - ${config?.max_amount ?? 20000}`}
               className={`w-full pl-8 pr-4 py-3 rounded-lg border text-lg transition-colors
                 ${
@@ -157,49 +148,35 @@ export default function Pay() {
             {t.paymentType}
           </label>
           <div className="flex gap-3">
-            {enabledTypes.includes("wxpay") && (
-              <button
-                onClick={() => setPaymentType("wxpay")}
-                className={`flex-1 py-3 rounded-lg font-medium transition-all border-2 flex items-center justify-center gap-2
-                  ${
-                    paymentType === "wxpay"
-                      ? isDark
-                        ? "bg-green-900/30 text-green-400 border-green-500 shadow-md"
-                        : "bg-green-50 text-green-700 border-green-500 shadow-md"
-                      : isDark
-                        ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-green-500"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-green-400"
-                  }`}
-              >
-                <img
-                  src={wechatIcon}
-                  alt={t.wechatPay}
-                  className="w-6 h-6 rounded"
-                />
-                {t.wechatPay}
-              </button>
-            )}
-            {enabledTypes.includes("alipay") && (
-              <button
-                onClick={() => setPaymentType("alipay")}
-                className={`flex-1 py-3 rounded-lg font-medium transition-all border-2 flex items-center justify-center gap-2
-                  ${
-                    paymentType === "alipay"
-                      ? isDark
-                        ? "bg-blue-900/30 text-blue-400 border-blue-500 shadow-md"
-                        : "bg-blue-50 text-blue-700 border-blue-500 shadow-md"
-                      : isDark
-                        ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-blue-400"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-blue-400"
-                  }`}
-              >
-                <img
-                  src={alipayIcon}
-                  alt={t.alipay}
-                  className="w-6 h-6 rounded"
-                />
-                {t.alipay}
-              </button>
+            {(enabledTypes as Array<keyof typeof PAYMENT_TYPE_CONFIG>).map(
+              (type) => {
+                const option = PAYMENT_TYPE_CONFIG[type];
+                const label = option.getLabel(t);
+
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setPaymentType(type)}
+                    className={`flex-1 py-3 rounded-lg font-medium transition-all border-2 flex items-center justify-center gap-2
+                    ${
+                      paymentType === type
+                        ? isDark
+                          ? option.activeClass
+                          : option.activeLightClass
+                        : isDark
+                          ? `bg-gray-800 text-gray-200 border-gray-700 ${option.inactiveHoverClass}`
+                          : `bg-white text-gray-700 border-gray-200 ${option.inactiveLightHoverClass}`
+                    }`}
+                  >
+                    <img
+                      src={option.icon}
+                      alt={label}
+                      className="w-6 h-6 rounded"
+                    />
+                    {label}
+                  </button>
+                );
+              },
             )}
           </div>
         </div>
@@ -223,7 +200,11 @@ export default function Pay() {
                 : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow-lg"
             }`}
         >
-          {loading ? t.creatingOrder : amount ? t.payAmount(amount) : t.selectAmount}
+          {loading
+            ? t.creatingOrder
+            : amount
+              ? t.payAmount(Number(amount))
+              : t.selectAmount}
         </button>
       </div>
 
