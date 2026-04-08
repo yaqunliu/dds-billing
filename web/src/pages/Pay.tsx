@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useUrlParams } from "../hooks/useUrlParams";
 import { getConfig, createOrder, type AppConfig } from "../api";
 import QRCodeModal from "../components/QRCode";
+import alipayIcon from "../assets/alipay.jpg";
+import wechatIcon from "../assets/wechat.png";
 
 const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];
 
@@ -161,32 +163,36 @@ export default function Pay() {
             {enabledTypes.includes("wxpay") && (
               <button
                 onClick={() => setPaymentType("wxpay")}
-                className={`flex-1 py-3 rounded-lg font-medium transition-all border flex items-center justify-center gap-2
+                className={`flex-1 py-3 rounded-lg font-medium transition-all border-2 flex items-center justify-center gap-2
                   ${
                     paymentType === "wxpay"
-                      ? "bg-green-600 text-white border-green-600 shadow-md"
+                      ? isDark
+                        ? "bg-green-900/30 text-green-400 border-green-500 shadow-md"
+                        : "bg-green-50 text-green-700 border-green-500 shadow-md"
                       : isDark
                         ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-green-500"
                         : "bg-white text-gray-700 border-gray-200 hover:border-green-400"
                   }`}
               >
-                <WechatIcon />
+                <img src={wechatIcon} alt="微信支付" className="w-6 h-6 rounded" />
                 微信支付
               </button>
             )}
             {enabledTypes.includes("alipay") && (
               <button
                 onClick={() => setPaymentType("alipay")}
-                className={`flex-1 py-3 rounded-lg font-medium transition-all border flex items-center justify-center gap-2
+                className={`flex-1 py-3 rounded-lg font-medium transition-all border-2 flex items-center justify-center gap-2
                   ${
                     paymentType === "alipay"
-                      ? "bg-blue-500 text-white border-blue-500 shadow-md"
+                      ? isDark
+                        ? "bg-blue-900/30 text-blue-400 border-blue-500 shadow-md"
+                        : "bg-blue-50 text-blue-700 border-blue-500 shadow-md"
                       : isDark
                         ? "bg-gray-800 text-gray-200 border-gray-700 hover:border-blue-400"
                         : "bg-white text-gray-700 border-gray-200 hover:border-blue-400"
                   }`}
               >
-                <AlipayIcon />
+                <img src={alipayIcon} alt="支付宝" className="w-6 h-6 rounded" />
                 支付宝
               </button>
             )}
@@ -238,18 +244,3 @@ export default function Pay() {
   );
 }
 
-function WechatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-      <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm3.868 2.8c-3.986 0-7.229 2.694-7.229 6.017 0 3.323 3.243 6.017 7.229 6.017.85 0 1.67-.136 2.434-.38a.72.72 0 0 1 .59.083l1.563.917a.27.27 0 0 0 .138.045c.133 0 .24-.11.24-.245 0-.059-.024-.118-.04-.176l-.32-1.218a.49.49 0 0 1 .176-.548C22.093 17.786 23 16.19 23 14.808c0-3.323-3.243-6.017-7.534-6.017zm-2.293 3.399c.528 0 .957.435.957.971a.964.964 0 0 1-.957.971.964.964 0 0 1-.957-.97c0-.537.43-.972.957-.972zm4.586 0c.528 0 .957.435.957.971a.964.964 0 0 1-.957.971.964.964 0 0 1-.957-.97c0-.537.43-.972.957-.972z" />
-    </svg>
-  );
-}
-
-function AlipayIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-      <path d="M21.422 14.762c-1.758-.39-3.29-.86-3.29-.86s.723-1.744 1.003-3.533h-3.55v-1.27h4.26V8.14h-4.26V5.75H13.6v2.39H9.54v.96h4.06v1.27H9.93v.96h6.54a12.3 12.3 0 0 1-.62 1.975s-2.771-.916-4.384-.674c-1.613.243-2.873 1.216-2.873 2.433 0 1.865 1.86 2.992 4.196 2.992 1.73 0 3.122-.678 4.133-1.59 1.476 1.043 3.456 2.103 5.078 2.724V3.6A3.6 3.6 0 0 0 18.4 0H5.6A3.6 3.6 0 0 0 2 3.6v16.8A3.6 3.6 0 0 0 5.6 24h12.8a3.6 3.6 0 0 0 3.6-3.6v-5.138c-.19-.16-.39-.32-.578-.5zm-8.343 3.353c-2.393 0-3.058-1.2-3.058-2.1 0-.9.756-1.76 2.194-1.76 1.725 0 3.277.84 3.277.84a6.7 6.7 0 0 1-2.413 3.02z" />
-    </svg>
-  );
-}
