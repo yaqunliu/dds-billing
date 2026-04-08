@@ -1,6 +1,6 @@
 # dds-billing
 
-自建支付服务，为 Sub2API 平台提供充值功能。采用可插拔支付渠道架构，首期对接蓝兔支付，后续可通过配置切换到其他渠道。
+自建支付服务，为 Sub2API 平台提供充值功能。采用可插拔支付渠道架构，当前对接 Stripe（支持微信/支付宝），可通过配置切换到其他渠道。
 
 ## 技术栈
 
@@ -9,7 +9,7 @@
 | 后端 | Go / Gin / GORM |
 | 前端 | React + TypeScript + Vite + TailwindCSS |
 | 数据库 | MySQL 8.0+ |
-| 支付渠道 | 可插拔，首期：蓝兔支付 |
+| 支付渠道 | 可插拔，当前：Stripe（微信/支付宝） |
 | 对接平台 | Sub2API 管理 API |
 
 ## 架构链路
@@ -40,7 +40,7 @@ dds-billing/
 │   ├── payment/
 │   │   ├── provider.go                # PaymentProvider 接口
 │   │   ├── registry.go                # 渠道注册表
-│   │   └── ltzf/                      # 蓝兔支付实现
+│   │   └── stripe/                    # Stripe 支付实现
 │   ├── sub2api/client.go              # Sub2API 对接
 │   ├── model/order.go                 # 订单模型
 │   ├── repo/order.go                  # 数据库操作
@@ -77,7 +77,7 @@ cp configs/config.example.yaml configs/config.yaml
 
 编辑 `configs/config.yaml`，填入：
 - 数据库连接信息
-- 蓝兔支付商户号和密钥
+- Stripe 密钥（Secret Key、Publishable Key、Webhook Secret）
 - Sub2API 地址和 Admin API Key
 
 ### 3. 启动后端
@@ -99,7 +99,15 @@ npm run dev
 
 前端默认监听 `:5173`，API 请求自动代理到后端。
 
-### 5. 配置 Sub2API
+### 5. Stripe Webhook（本地开发）
+
+```bash
+stripe listen --forward-to localhost:3000/api/notify/stripe
+```
+
+将输出的 `whsec_xxx` 填入 `config.yaml` 的 `stripe.webhook_secret`。
+
+### 6. 配置 Sub2API
 
 在 Sub2API 管理后台，将充值页面 URL 设置为：
 
@@ -136,5 +144,5 @@ Sub2API 会自动在 URL 后拼接 `user_id`、`token`、`theme` 等参数。
 
 ```yaml
 payment:
-  provider: "easypay"  # 从 ltzf 切换到 easypay
+  provider: "easypay"  # 切换到其他渠道
 ```

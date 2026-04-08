@@ -11,7 +11,6 @@ type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
 	Payment  PaymentConfig  `yaml:"payment"`
-	Ltzf     LtzfConfig     `yaml:"ltzf"`
 	Easypay  EasypayConfig  `yaml:"easypay"`
 	Zpay     ZpayConfig     `yaml:"zpay"`
 	Stripe   StripeConfig   `yaml:"stripe"`
@@ -31,12 +30,6 @@ type DatabaseConfig struct {
 type PaymentConfig struct {
 	Provider     string   `yaml:"provider"`
 	EnabledTypes []string `yaml:"enabled_types"`
-}
-
-type LtzfConfig struct {
-	MchID     string `yaml:"mch_id"`
-	SecretKey string `yaml:"secret_key"`
-	NotifyURL string `yaml:"notify_url"`
 }
 
 type EasypayConfig struct {

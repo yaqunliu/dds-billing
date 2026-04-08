@@ -9,7 +9,6 @@ import (
 	"dds-billing/internal/logic"
 	"dds-billing/internal/model"
 	"dds-billing/internal/payment"
-	"dds-billing/internal/payment/ltzf"
 	stripepay "dds-billing/internal/payment/stripe"
 	"dds-billing/internal/repo"
 	"dds-billing/internal/sub2api"
@@ -43,7 +42,6 @@ func main() {
 	sub2apiClient := sub2api.NewClient(cfg.Sub2API.BaseURL, cfg.Sub2API.AdminAPIKey)
 
 	// Register payment providers
-	payment.Register("ltzf", ltzf.NewProvider(cfg.Ltzf))
 	if cfg.Stripe.SecretKey != "" {
 		payment.Register("stripe", stripepay.NewProvider(cfg.Stripe))
 	}

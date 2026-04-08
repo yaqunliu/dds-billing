@@ -7,16 +7,19 @@ database:
 
 # ========== 支付渠道配置 ==========
 payment:
-  provider: "ltzf" # ltzf / easypay / zpay / stripe
+  provider: "stripe" # stripe / easypay / zpay
   enabled_types:
     - wxpay
     - alipay
 
-# 蓝兔支付
-ltzf:
-  mch_id: "你的蓝兔商户号"
-  secret_key: "你的蓝兔商户密钥"
-  notify_url: "https://your-domain.com/api/notify/ltzf"
+# Stripe（支持微信/支付宝）
+stripe:
+  secret_key: "sk_test_xxx"               # Stripe Secret Key
+  publishable_key: "pk_test_xxx"           # Stripe Publishable Key
+  webhook_secret: "whsec_xxx"              # Stripe Webhook Signing Secret
+  notify_url: "https://your-domain.com/api/notify/stripe"
+  success_url: "https://your-domain.com/pay/result"  # 支付成功跳转
+  cancel_url: "https://your-domain.com/pay"           # 取消支付跳转
 
 # 易支付（预留）
 easypay:
@@ -30,15 +33,6 @@ zpay:
   mch_id: ""
   secret_key: ""
   notify_url: ""
-
-# Stripe（支持微信/支付宝）
-stripe:
-  secret_key: "sk_test_xxx"               # Stripe Secret Key
-  publishable_key: "pk_test_xxx"           # Stripe Publishable Key
-  webhook_secret: "whsec_xxx"              # Stripe Webhook Signing Secret
-  notify_url: "https://your-domain.com/api/notify/stripe"
-  success_url: "https://your-domain.com/pay/result"  # 支付成功跳转
-  cancel_url: "https://your-domain.com/pay"           # 取消支付跳转
 
 # ========== Sub2API ==========
 sub2api:
