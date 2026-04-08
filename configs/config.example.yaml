@@ -21,12 +21,14 @@ stripe:
   success_url: "https://your-domain.com/pay/result"  # 支付成功跳转
   cancel_url: "https://your-domain.com/pay"           # 取消支付跳转
 
-# 易支付（预留）
+# 易支付协议（启象支付/其他基于易支付协议的渠道商）
+# 切换渠道商只需改 api_base 和密钥
 easypay:
-  pid: ""
-  pkey: ""
-  api_base: ""
-  notify_url: ""
+  pid: "1003"                                         # 商户ID
+  pkey: "你的商户密钥"                                    # 商户密钥
+  api_base: "https://api.payqixiang.cn"               # 渠道商 API 地址
+  notify_url: "https://your-domain.com/api/notify/easypay"  # 异步回调
+  return_url: "https://your-domain.com/pay/result"          # 同步跳转
 
 # ZPAY（预留）
 zpay:

@@ -35,8 +35,9 @@ type PaymentConfig struct {
 type EasypayConfig struct {
 	PID       string `yaml:"pid"`
 	PKey      string `yaml:"pkey"`
-	APIBase   string `yaml:"api_base"`
-	NotifyURL string `yaml:"notify_url"`
+	APIBase   string `yaml:"api_base"`   // 例如 https://api.payqixiang.cn
+	NotifyURL string `yaml:"notify_url"` // 异步回调地址
+	ReturnURL string `yaml:"return_url"` // 同步跳转地址
 }
 
 type ZpayConfig struct {

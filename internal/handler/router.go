@@ -42,9 +42,10 @@ func SetupRouter(cfg *config.Config, orderRepo *repo.OrderRepo, orderLogic *logi
 		api.GET("/orders/:order_no", queryHandler.Query)
 		api.GET("/orders", queryHandler.List)
 
-		// Payment notify callback
+		// Payment notify callback (POST for Stripe, GET for easypay protocol)
 		notifyHandler := NewNotifyHandler(orderRepo, rechargeLogic)
 		api.POST("/notify/:provider", notifyHandler.Handle)
+		api.GET("/notify/:provider", notifyHandler.Handle)
 	}
 
 	return r

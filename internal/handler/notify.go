@@ -46,10 +46,17 @@ func (h *NotifyHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	// Build params map with headers (needed by Stripe for webhook signature)
+	// Build params map from headers and query string
 	notifyParams := map[string]string{}
+	// Stripe webhook signature
 	if sig := c.GetHeader("Stripe-Signature"); sig != "" {
 		notifyParams["Stripe-Signature"] = sig
+	}
+	// 易支付协议回调通过 GET query 传参
+	for k, v := range c.Request.URL.Query() {
+		if len(v) > 0 {
+			notifyParams[k] = v[0]
+		}
 	}
 
 	// Verify signature and parse notification
