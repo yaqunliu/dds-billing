@@ -14,27 +14,21 @@ payment:
 
 # Stripe（支持微信/支付宝）
 stripe:
-  secret_key: "sk_test_xxx"               # Stripe Secret Key
-  publishable_key: "pk_test_xxx"           # Stripe Publishable Key
-  webhook_secret: "whsec_xxx"              # Stripe Webhook Signing Secret
+  secret_key: "sk_test_xxx" # Stripe Secret Key
+  publishable_key: "pk_test_xxx" # Stripe Publishable Key
+  webhook_secret: "whsec_xxx" # Stripe Webhook Signing Secret
   notify_url: "https://your-domain.com/api/notify/stripe"
-  success_url: "https://your-domain.com/pay/result"  # 支付成功跳转
-  cancel_url: "https://your-domain.com/pay"           # 取消支付跳转
+  success_url: "https://your-domain.com/pay/result" # 支付成功跳转
+  cancel_url: "https://your-domain.com/pay" # 取消支付跳转
 
-# 易支付协议（启象支付/其他基于易支付协议的渠道商）
+# 易支付协议（启象支付/ZPAY/其他基于易支付协议的渠道商）
 # 切换渠道商只需改 api_base 和密钥
 easypay:
-  pid: "1003"                                         # 商户ID
-  pkey: "你的商户密钥"                                    # 商户密钥
-  api_base: "https://api.payqixiang.cn"               # 渠道商 API 地址
-  notify_url: "https://your-domain.com/api/notify/easypay"  # 异步回调
-  return_url: "https://your-domain.com/pay/result"          # 同步跳转
-
-# ZPAY（预留）
-zpay:
-  mch_id: ""
-  secret_key: ""
-  notify_url: ""
+  pid: "1003" # 商户ID
+  pkey: "你的商户密钥" # 商户密钥
+  api_base: "https://api.payqixiang.cn" # 渠道商 API 地址
+  notify_url: "https://your-domain.com/api/notify/easypay" # 异步回调
+  return_url: "https://your-domain.com/pay/result" # 同步跳转
 
 # ========== Sub2API ==========
 sub2api:
@@ -43,6 +37,6 @@ sub2api:
 
 # ========== 业务规则 ==========
 billing:
-  min_amount: 1.00
-  max_amount: 5000.00
+  min_amount: 5.00
+  max_amount: 2000.00
   order_timeout_minutes: 5

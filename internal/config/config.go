@@ -12,7 +12,6 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Payment  PaymentConfig  `yaml:"payment"`
 	Easypay  EasypayConfig  `yaml:"easypay"`
-	Zpay     ZpayConfig     `yaml:"zpay"`
 	Stripe   StripeConfig   `yaml:"stripe"`
 	Sub2API  Sub2APIConfig  `yaml:"sub2api"`
 	Billing  BillingConfig  `yaml:"billing"`
@@ -38,12 +37,6 @@ type EasypayConfig struct {
 	APIBase   string `yaml:"api_base"`   // 例如 https://api.payqixiang.cn
 	NotifyURL string `yaml:"notify_url"` // 异步回调地址
 	ReturnURL string `yaml:"return_url"` // 同步跳转地址
-}
-
-type ZpayConfig struct {
-	MchID     string `yaml:"mch_id"`
-	SecretKey string `yaml:"secret_key"`
-	NotifyURL string `yaml:"notify_url"`
 }
 
 type StripeConfig struct {
