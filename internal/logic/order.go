@@ -71,7 +71,7 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 	payResp, err := provider.CreatePayment(nil, payment.CreatePaymentRequest{
 		OrderNo:     orderNo,
 		Amount:      amountStr,
-		Subject:     fmt.Sprintf("账户充值 %.2f 元", req.Amount),
+		Subject:     "VIP会员",
 		PaymentType: payType,
 	})
 	if err != nil {
