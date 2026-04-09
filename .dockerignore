@@ -1,0 +1,9 @@
+web/node_modules
+web/dist
+.git
+.gitignore
+.DS_Store
+*.md
+docs/
+ssl/
+configs/config.yaml

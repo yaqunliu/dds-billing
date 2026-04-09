@@ -1,5 +1,6 @@
 # Configs with secrets
 configs/config.yaml
+.env
 
 # Go
 bin/
@@ -13,6 +14,9 @@ web/dist/
 .idea/
 .vscode/
 *.swp
+
+# SSL certificates
+ssl/
 
 # OS
 .DS_Store

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"dds-billing/internal/config"
 	"dds-billing/internal/handler"
@@ -19,8 +21,15 @@ import (
 )
 
 func main() {
+	// Parse flags
+	configPath := flag.String("c", "configs/config.yaml", "config file path")
+	flag.Parse()
+	if envPath := os.Getenv("CONFIG_PATH"); envPath != "" {
+		*configPath = envPath
+	}
+
 	// Load config
-	cfg, err := config.Load("configs/config.yaml")
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
