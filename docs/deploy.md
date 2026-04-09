@@ -5,6 +5,8 @@
 - Docker 24+
 - Docker Compose v2+
 - Git
+- 80 和 443 端口可用
+- 域名已解析到服务器 IP
 
 ## 部署步骤
 
@@ -23,20 +25,25 @@ cd dds-billing
 
 ```bash
 cp configs/config.example.yaml configs/config.yaml
-vim configs/config.yaml
+cp .env.example .env
 ```
 
-需要填写的关键配置：
+编辑 `.env`，设置 MySQL 密码：
+
+```
+MYSQL_ROOT_PASSWORD=your_secure_password
+```
+
+编辑 `configs/config.yaml`：
 
 ```yaml
 database:
-  # 容器内连接 MySQL，host 用 docker-compose 的 service 名
-  dsn: "root:dds_billing_2026@tcp(mysql:3306)/dds_billing?charset=utf8mb4&parseTime=True&loc=Local"
+  # host 写 mysql（docker-compose service 名）
+  dsn: "root:your_secure_password@tcp(mysql:3306)/dds_billing?charset=utf8mb4&parseTime=True&loc=Local"
 
 payment:
-  provider: "easypay"  # 或 stripe
+  provider: "easypay"
 
-# 按实际渠道填写密钥
 easypay:
   pid: "xxx"
   pkey: "xxx"
@@ -49,78 +56,69 @@ sub2api:
   admin_api_key: "xxx"
 ```
 
-> **注意**：数据库 host 必须写 `mysql`（docker-compose service 名），不是 `localhost`。
+### 3. 修改 Nginx 域名
 
-### 3. 配置 SSL 证书
-
-创建 ssl 目录，放入证书文件：
+编辑 `nginx/nginx.conf`，将 `your-domain.com` 替换为你的实际域名：
 
 ```bash
-mkdir -p ssl
-# 将证书文件放入
-cp /path/to/fullchain.pem ssl/fullchain.pem
-cp /path/to/privkey.pem ssl/privkey.pem
+sed -i 's/your-domain.com/pay.example.com/g' nginx/nginx.conf
 ```
 
-#### 使用 Let's Encrypt 免费证书
+### 4. 申请 SSL 证书
+
+**首次建议用 `--staging` 申请测试证书**，验证流程无误后再申请正式证书：
 
 ```bash
-# 安装 certbot
-apt install certbot
+# 第一步：测试证书（不消耗额度） ， 邮箱用来收取万一自动续签失败发送的证书过期提醒
+./scripts/init-ssl.sh your-domain.com your@email.com --staging
 
-# 先临时停掉 nginx 容器（如果已在运行）
-docker compose stop nginx
-
-# 申请证书（standalone 模式，需要 80 端口空闲）
-certbot certonly --standalone -d your-domain.com
-
-# 复制证书
-cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ssl/
-cp /etc/letsencrypt/live/your-domain.com/privkey.pem ssl/
+# 确认无误后，删掉测试证书，申请正式证书
+rm -rf certbot/
+./scripts/init-ssl.sh your-domain.com your@email.com
 ```
 
-### 4. 修改 MySQL 密码（可选）
+脚本会自动：
 
-默认密码在 `docker-compose.yml` 中，可通过环境变量覆盖：
+1. 创建临时自签名证书 → 启动 Nginx
+2. 通过 certbot webroot 方式验证域名
+3. 获取 Let's Encrypt 证书
+4. 重载 Nginx 使用正式证书
 
-```bash
-export MYSQL_ROOT_PASSWORD=your_secure_password
-```
-
-同时更新 `configs/config.yaml` 中的 DSN。
-
-### 5. 构建并启动
+### 5. 验证服务
 
 ```bash
-docker compose build
-docker compose up -d
-```
-
-首次启动会自动：
-- 创建 MySQL 数据库 `dds_billing`
-- Go 后端自动建表（GORM AutoMigrate）
-
-### 6. 验证服务
-
-```bash
-# 检查容器状态
+# 检查容器状态（应该有 4 个运行中）
 docker compose ps
 
 # 检查后端健康
-curl http://localhost/health
-# 应返回 {"status":"ok"}
+curl https://your-domain.com/health
 
 # 查看日志
 docker compose logs -f backend
-docker compose logs -f nginx
 ```
 
-### 7. 配置 Sub2API
+### 6. 配置 Sub2API
 
 在 Sub2API 管理后台，将充值页面 URL 设置为：
 
 ```
 https://your-domain.com/pay
+```
+
+### 7. 设置证书自动续签
+
+Let's Encrypt 证书有效期 90 天。docker-compose 中的 certbot 容器会每 12 小时自动检查续签。
+
+额外建议添加 crontab 作为备份：
+
+```bash
+crontab -e
+```
+
+添加：
+
+```
+0 3 1 * * cd /opt/dds-billing && ./scripts/renew-ssl.sh >> /var/log/dds-billing-ssl-renew.log 2>&1
 ```
 
 ## 常用运维命令
@@ -132,7 +130,6 @@ docker compose ps
 # 查看日志（实时）
 docker compose logs -f backend
 docker compose logs -f nginx
-docker compose logs -f mysql
 
 # 重启单个服务
 docker compose restart backend
@@ -145,39 +142,34 @@ docker compose up -d
 # 停止所有服务
 docker compose down
 
-# 停止并删除数据（慎用！会丢失数据库数据）
+# 停止并删除数据（慎用！）
 docker compose down -v
 
 # 进入容器调试
 docker compose exec backend sh
 docker compose exec mysql mysql -u root -p dds_billing
+
+# 手动续签证书
+./scripts/renew-ssl.sh
 ```
 
-## 证书续期
-
-Let's Encrypt 证书有效期 90 天，建议设置 crontab 自动续期：
-
-```bash
-# 编辑 crontab
-crontab -e
-
-# 添加（每月 1 号凌晨 3 点续期）
-0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/dds-billing/ssl/ && cp /etc/letsencrypt/live/your-domain.com/privkey.pem /opt/dds-billing/ssl/ && docker compose -f /opt/dds-billing/docker-compose.yml restart nginx
-```
-
-## 目录结构（服务器上）
+## 服务器目录结构
 
 ```
 /opt/dds-billing/
-├── configs/
-│   └── config.yaml          # 实际配置（手动创建）
-├── ssl/
-│   ├── fullchain.pem        # SSL 证书
-│   └── privkey.pem          # SSL 私钥
+├── configs/config.yaml       # 实际配置
+├── .env                      # MySQL 密码
+├── certbot/
+│   ├── conf/                 # Let's Encrypt 证书（自动生成）
+│   └── www/                  # ACME challenge 文件（自动生成）
 ├── docker-compose.yml
 ├── Dockerfile
 ├── nginx/
 │   ├── Dockerfile
-│   └── nginx.conf
-└── ...（其他代码文件）
+│   └── nginx.conf            # 需要替换域名
+├── scripts/
+│   ├── init-ssl.sh           # 首次申请证书
+│   └── renew-ssl.sh          # 手动续签证书
+└── ...
 ```
+

@@ -17,6 +17,7 @@ web/dist/
 
 # SSL certificates
 ssl/
+certbot/
 
 # OS
 .DS_Store
