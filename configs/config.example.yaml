@@ -38,5 +38,5 @@ sub2api:
 # ========== 业务规则 ==========
 billing:
   min_amount: 5.00
-  max_amount: 2000.00
+  max_amount: 3000.00
   order_timeout_minutes: 5
