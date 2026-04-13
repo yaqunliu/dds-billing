@@ -16,24 +16,29 @@
 
 ### 需要创建的文件
 
-| 文件 | 说明 |
-|------|------|
-| `scripts/init-ssl.sh` | 首次申请证书脚本（启动临时 nginx → certbot 申请 → 重启正式服务） |
-| `scripts/renew-ssl.sh` | 证书续签脚本（certbot renew → reload nginx） |
-| `nginx/nginx.init.conf` | 初始化用的 Nginx 配置（仅 HTTP，用于 certbot 验证） |
+
+| 文件                      | 说明                                         |
+| ----------------------- | ------------------------------------------ |
+| `scripts/init-ssl.sh`   | 首次申请证书脚本（启动临时 nginx → certbot 申请 → 重启正式服务） |
+| `scripts/renew-ssl.sh`  | 证书续签脚本（certbot renew → reload nginx）       |
+| `nginx/nginx.init.conf` | 初始化用的 Nginx 配置（仅 HTTP，用于 certbot 验证）       |
+
 
 ### 需要修改的文件
 
-| 文件 | 说明 |
-|------|------|
-| `nginx/nginx.conf` | 添加 `/.well-known/acme-challenge/` location，供续签时使用 |
-| `docker-compose.yml` | 添加 certbot 数据卷映射，nginx 挂载 certbot webroot |
-| `docs/deploy.md` | 重写部署步骤，整合证书申请流程 |
-| `.gitignore` | 添加 certbot 数据目录 |
+
+| 文件                   | 说明                                                |
+| -------------------- | ------------------------------------------------- |
+| `nginx/nginx.conf`   | 添加 `/.well-known/acme-challenge/` location，供续签时使用 |
+| `docker-compose.yml` | 添加 certbot 数据卷映射，nginx 挂载 certbot webroot         |
+| `docs/deploy.md`     | 重写部署步骤，整合证书申请流程                                   |
+| `.gitignore`         | 添加 certbot 数据目录                                   |
+
 
 ### 实现细节
 
 #### scripts/init-ssl.sh
+
 1. 接收域名参数和邮箱参数
 2. 用 docker run 启动临时 nginx 容器（nginx.init.conf，仅 80 端口）
 3. 用 docker run certbot/certbot 执行 certonly --webroot
@@ -42,14 +47,17 @@
 6. 提示用户执行 `docker compose up -d` 启动正式服务
 
 #### scripts/renew-ssl.sh
+
 1. 用 docker run certbot/certbot renew
 2. docker compose exec nginx nginx -s reload
 
 #### nginx.conf 改动
+
 - 在 HTTPS server 块中添加 `location /.well-known/acme-challenge/`，指向 certbot webroot
 - SSL 证书路径改为 `/etc/nginx/ssl/letsencrypt/live/{domain}/`
 
 #### docker-compose.yml 改动
+
 - nginx volumes 添加 certbot webroot 和证书目录的映射
 - 证书目录从 `./ssl` 改为 `./ssl/letsencrypt`
 
@@ -70,3 +78,9 @@
 2. `docker compose up -d` 三个容器正常运行
 3. `curl -I https://your-domain.com` 返回 200 且证书有效
 4. `./scripts/renew-ssl.sh` 执行不报错
+
+
+
+深度呼吸，什么叫深度呼吸，我们呼吸的方式可能是错的，你的呼吸模式一直停留在一种”最低配置“的状态，远远没有发挥出它应有的修复功能，我们的日常呼吸是浅呼吸，气只到了胸腔没有腹部，要想修复，你要深呼吸，深度呼吸是能主动触发”修复模式“的最简单方式，具体做法，坐下来或者躺下来，闭上眼睛，用鼻子慢慢吸气，细四秒，
+
+用鼻子慢慢吸气，吸4秒，不是往胸腔吸，是往腹部吸，想象你的肚子是一个气球，你在把它慢慢吹大。吸满之后，屏住，停两秒，然后用嘴巴慢慢呼气，呼出6秒，做十次这种呼吸，大约2分钟
