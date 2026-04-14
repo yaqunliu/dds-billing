@@ -83,8 +83,7 @@ export default function QRCodeModal({
   const payLabel = t.paymentLabels[paymentType]
   const payColor = paymentType === 'wxpay' ? 'text-green-500' : 'text-blue-500'
 
-  // 优先使用渠道返回的二维码图片，没有则从 payUrl 生成
-  const hasImageQR = !!qrCodeUrl
+  // 优先使用渠道返回的二维码链接生成二维码，没有则用 payUrl
   const qrValue = qrCodeUrl || payUrl
 
   return (
@@ -114,9 +113,7 @@ export default function QRCodeModal({
             <div className={`mx-auto my-4 w-[220px] h-[220px] rounded-xl overflow-hidden border flex items-center justify-center
               ${isDark ? 'border-gray-700 bg-white' : 'border-gray-200 bg-white'}`}
             >
-              {hasImageQR ? (
-                <img src={qrCodeUrl} alt={t.qrAlt} className="w-full h-full object-contain" />
-              ) : qrValue ? (
+              {qrValue ? (
                 <QRCodeSVG value={qrValue} size={200} level="M" />
               ) : (
                 <p className="text-gray-400 text-sm">{t.qrLoading}</p>

@@ -10,7 +10,7 @@ export default function Pay() {
   const { token, theme, lang } = useUrlParams();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [amount, setAmount] = useState<number | string>("");
-  const [paymentType, setPaymentType] = useState<"wxpay" | "alipay">("wxpay");
+  const [paymentType, setPaymentType] = useState<"wxpay" | "alipay">("alipay");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -66,6 +66,7 @@ export default function Pay() {
         payment_type: paymentType,
       });
       if (res.data.code === 0) {
+        console.log(res.data.data);
         setOrderNo(res.data.data.order_no);
         setQrCodeUrl(res.data.data.qr_code_url);
         setPayUrl(res.data.data.pay_url);
