@@ -19,6 +19,25 @@ export const STATUS_LABELS: Record<AppLang, Record<string, string>> = {
   },
 };
 
+type PayMessages = {
+  title: string;
+  amount: string;
+  customAmount: string;
+  paymentType: string;
+  wechatPay: string;
+  alipay: string;
+  missingToken: string;
+  createOrderFailed: string;
+  networkError: string;
+  creatingOrder: string;
+  payAmount: (value: number) => string;
+  selectAmount: string;
+  amountRange: (min: number, max: number) => string;
+  policyTitle: string;
+  policySubtitle: string;
+  policyItems: (minAmount: number) => string[];
+};
+
 export const PAY_MESSAGES = {
   zh: {
     title: "账户充值",
@@ -35,6 +54,13 @@ export const PAY_MESSAGES = {
     selectAmount: "请选择金额",
     amountRange: (min: number, max: number) =>
       `请输入 ${min} - ${max} 之间的金额`,
+    policyTitle: "购买规则说明",
+    policySubtitle: "充值/退款政策",
+    policyItems: (minAmount: number) => [
+      `充值最低 ${minAmount} 元，按 1 元 = 1 美元到账，通常即时到账（最长 5 分钟）。若出现异常请联系管理员。`,
+      "退款金额 = 充值金额 - 已消费 - 5% * 充值金额（第三方支付平台手续费）。退款将原路返回，1 - 3 个工作日到账。",
+      "充值即视为同意本政策，解释权归平台所有。",
+    ],
   },
   en: {
     title: "Account Recharge",
@@ -51,11 +77,15 @@ export const PAY_MESSAGES = {
     selectAmount: "Please select an amount",
     amountRange: (min: number, max: number) =>
       `Please enter an amount between ${min} and ${max}`,
+    policyTitle: "Purchase Rules",
+    policySubtitle: "Recharge / Refund Policy",
+    policyItems: (minAmount: number) => [
+      `The minimum recharge amount is ¥${minAmount}. Balance is credited at a rate of ¥1 = $1, usually instantly and within 5 minutes at most. Contact the administrator if anything looks abnormal.`,
+      "Refund amount = recharge amount - consumed amount - 5% of the recharge amount (third-party payment platform fee). Refunds are returned to the original payment method within 1-3 business days.",
+      "By recharging, you are deemed to have agreed to this policy. Final interpretation belongs to the platform.",
+    ],
   },
-} satisfies Record<
-  AppLang,
-  Record<string, string | ((...args: number[]) => string)>
->;
+} satisfies Record<AppLang, PayMessages>;
 
 export const ORDERS_MESSAGES = {
   zh: {
