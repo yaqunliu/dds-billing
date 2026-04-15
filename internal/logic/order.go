@@ -75,7 +75,8 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 		PaymentType: payType,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create payment: %w", err)
+		log.Printf("[order] payment provider error: %v", err)
+		return nil, fmt.Errorf("暂时无法充值，请联系客服人员")
 	}
 
 	// 7. Save order to database
