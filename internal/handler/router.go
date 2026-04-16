@@ -38,7 +38,7 @@ func SetupRouter(cfg *config.Config, orderRepo *repo.OrderRepo, orderLogic *logi
 		orderHandler := NewOrderHandler(orderLogic)
 		api.POST("/orders", orderHandler.Create)
 
-		queryHandler := NewQueryHandler(orderRepo)
+		queryHandler := NewQueryHandler(orderRepo, orderLogic)
 		api.GET("/orders/:order_no", queryHandler.Query)
 		api.GET("/orders", queryHandler.List)
 

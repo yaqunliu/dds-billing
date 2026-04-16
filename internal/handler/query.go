@@ -2,19 +2,26 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
+	"dds-billing/internal/logic"
+	"dds-billing/internal/model"
 	"dds-billing/internal/repo"
 
 	"github.com/gin-gonic/gin"
 )
 
 type QueryHandler struct {
-	orderRepo *repo.OrderRepo
+	orderRepo  *repo.OrderRepo
+	orderLogic *logic.OrderLogic
 }
 
-func NewQueryHandler(orderRepo *repo.OrderRepo) *QueryHandler {
-	return &QueryHandler{orderRepo: orderRepo}
+func NewQueryHandler(orderRepo *repo.OrderRepo, orderLogic *logic.OrderLogic) *QueryHandler {
+	return &QueryHandler{
+		orderRepo:  orderRepo,
+		orderLogic: orderLogic,
+	}
 }
 
 // Query GET /api/orders/:order_no
@@ -29,6 +36,15 @@ func (h *QueryHandler) Query(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 1, "message": "order not found"})
 		return
+	}
+
+	// 如果订单还是 pending，主动查单
+	if order.Status == model.OrderStatusPending {
+		if err := h.orderLogic.CheckAndUpdateOrder(order); err != nil {
+			log.Printf("[query] check order failed: order_no=%s, err=%v", orderNo, err)
+		}
+		// 重新查询最新状态
+		order, _ = h.orderRepo.GetByOrderNo(orderNo)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

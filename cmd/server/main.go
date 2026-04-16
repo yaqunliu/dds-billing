@@ -60,8 +60,8 @@ func main() {
 	}
 
 	// Init business logic
-	orderLogic := logic.NewOrderLogic(cfg, orderRepo, sub2apiClient)
 	rechargeLogic := logic.NewRechargeLogic(orderRepo, sub2apiClient)
+	orderLogic := logic.NewOrderLogic(cfg, orderRepo, sub2apiClient, rechargeLogic)
 
 	// Setup router
 	r := handler.SetupRouter(cfg, orderRepo, orderLogic, rechargeLogic)

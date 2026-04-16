@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -13,16 +14,18 @@ import (
 )
 
 type OrderLogic struct {
-	cfg       *config.Config
-	orderRepo *repo.OrderRepo
-	sub2api   *sub2api.Client
+	cfg           *config.Config
+	orderRepo     *repo.OrderRepo
+	sub2api       *sub2api.Client
+	rechargeLogic *RechargeLogic
 }
 
-func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client) *OrderLogic {
+func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client, rechargeLogic *RechargeLogic) *OrderLogic {
 	return &OrderLogic{
-		cfg:       cfg,
-		orderRepo: orderRepo,
-		sub2api:   sub2apiClient,
+		cfg:           cfg,
+		orderRepo:     orderRepo,
+		sub2api:       sub2apiClient,
+		rechargeLogic: rechargeLogic,
 	}
 }
 
@@ -68,7 +71,7 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 
 	// 6. Create payment via provider
 	amountStr := fmt.Sprintf("%.2f", req.Amount)
-	payResp, err := provider.CreatePayment(nil, payment.CreatePaymentRequest{
+	payResp, err := provider.CreatePayment(context.TODO(), payment.CreatePaymentRequest{
 		OrderNo:     orderNo,
 		Amount:      amountStr,
 		Subject:     "VIP会员",
@@ -107,4 +110,47 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 		PayURL:    payResp.PayURL,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
 	}, nil
+}
+
+// CheckAndUpdateOrder 主动查单并更新订单状态
+func (l *OrderLogic) CheckAndUpdateOrder(order *model.Order) error {
+	// 只处理 pending 状态的订单
+	if order.Status != model.OrderStatusPending {
+		return nil
+	}
+
+	provider := payment.GetActive(l.cfg)
+
+	// 调用支付渠道查单接口
+	notification, err := provider.QueryOrder(context.Background(), order.OrderNo)
+	if err != nil {
+		// 查询失败或未支付，不做处理
+		return nil
+	}
+
+	// 支付成功，更新订单状态
+	now := time.Now()
+	order.Status = model.OrderStatusPaid
+	order.TradeNo = notification.TradeNo
+	order.PayNo = notification.PayNo
+	order.PaidAt = &now
+
+	if err := l.orderRepo.UpdateStatus(order.OrderNo, model.OrderStatusPaid, map[string]interface{}{
+		"trade_no": notification.TradeNo,
+		"pay_no":   notification.PayNo,
+		"paid_at":  now,
+	}); err != nil {
+		return fmt.Errorf("update order status: %w", err)
+	}
+
+	log.Printf("[order] check and update: order_no=%s, status=paid", order.OrderNo)
+
+	// 异步触发充值
+	go func() {
+		if err := l.rechargeLogic.ProcessRecharge(order.OrderNo); err != nil {
+			log.Printf("[order] recharge failed: order_no=%s, err=%v", order.OrderNo, err)
+		}
+	}()
+
+	return nil
 }

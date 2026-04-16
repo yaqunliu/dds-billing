@@ -108,6 +108,11 @@ func (p *Provider) QueryOrder(ctx context.Context, orderNo string) (*payment.Pay
 		return nil, fmt.Errorf("easypay query order: %w", err)
 	}
 
+	// 检查支付状态：1 为支付成功，0 为未支付
+	if result.Status != 1 {
+		return nil, fmt.Errorf("order not paid: status=%d", result.Status)
+	}
+
 	var payType payment.PaymentType
 	switch result.Type {
 	case "wxpay":

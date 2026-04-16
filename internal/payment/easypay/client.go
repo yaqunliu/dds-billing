@@ -47,7 +47,7 @@ type QueryOrderResponse struct {
 	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Money       string `json:"money"`
-	TradeStatus string `json:"trade_status"`
+	Status      int    `json:"status"` // 1为支付成功，0为未支付
 	Addtime     string `json:"addtime"`
 	Endtime     string `json:"endtime"`
 }
