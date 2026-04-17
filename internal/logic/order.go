@@ -116,17 +116,22 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 func (l *OrderLogic) CheckAndUpdateOrder(order *model.Order) error {
 	// 只处理 pending 状态的订单
 	if order.Status != model.OrderStatusPending {
+		log.Printf("[check] skip order_no=%s, status=%s (not pending)", order.OrderNo, order.Status)
 		return nil
 	}
+
+	log.Printf("[check] querying payment provider for order_no=%s", order.OrderNo)
 
 	provider := payment.GetActive(l.cfg)
 
 	// 调用支付渠道查单接口
 	notification, err := provider.QueryOrder(context.Background(), order.OrderNo)
 	if err != nil {
-		// 查询失败或未支付，不做处理
+		log.Printf("[check] query result: order_no=%s, not paid or error: %v", order.OrderNo, err)
 		return nil
 	}
+
+	log.Printf("[check] query result: order_no=%s, paid! trade_no=%s", order.OrderNo, notification.TradeNo)
 
 	// 支付成功，更新订单状态
 	now := time.Now()
