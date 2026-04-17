@@ -1,25 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: dds_billing
-      MYSQL_CHARSET: utf8mb4
-      TZ: UTC
-    command: --default-time-zone='+00:00'
-    env_file:
-      - .env
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   backend:
     build:
       context: .
@@ -27,35 +6,6 @@ services:
     restart: unless-stopped
     environment:
       TZ: UTC
+    network_mode: host
     volumes:
       - ./configs/config.yaml:/app/configs/config.yaml:ro
-    depends_on:
-      mysql:
-        condition: service_healthy
-    expose:
-      - "3000"
-
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot
-    depends_on:
-      - backend
-
-  certbot:
-    image: certbot/certbot
-    restart: unless-stopped
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-
-volumes:
-  mysql_data:
