@@ -6,6 +6,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: dds_billing
       MYSQL_CHARSET: utf8mb4
+      TZ: UTC
+    command: --default-time-zone='+00:00'
     env_file:
       - .env
     volumes:
@@ -23,6 +25,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      TZ: UTC
     volumes:
       - ./configs/config.yaml:/app/configs/config.yaml:ro
     depends_on:

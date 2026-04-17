@@ -84,11 +84,16 @@ func (h *NotifyHandler) Handle(c *gin.Context) {
 		return
 	}
 
-	// Skip if already processed
-	if order.Status != model.OrderStatusPending {
+	// Skip if already processed (except expired - those need reconciliation)
+	if order.Status != model.OrderStatusPending && order.Status != model.OrderStatusExpired {
 		log.Printf("[notify] order %s already in status %s, skip", notification.OrderNo, order.Status)
 		c.String(http.StatusOK, "SUCCESS")
 		return
+	}
+
+	// If order was marked expired but payment succeeded, log reconciliation
+	if order.Status == model.OrderStatusExpired {
+		log.Printf("[notify] reconciliation: order %s was expired but payment confirmed, updating to paid", notification.OrderNo)
 	}
 
 	// Update order to paid

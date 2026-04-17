@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"time"
+
 	"dds-billing/internal/model"
 
 	"gorm.io/gorm"
@@ -45,18 +47,20 @@ func (r *OrderRepo) ListByUserID(userID int64, offset, limit int) ([]model.Order
 	return orders, total, nil
 }
 
-// ListPendingOrders 查询所有 pending 且未过期的订单
+// ListPendingOrders 查询所有 pending 订单（已由 ExpireTimedOutOrders 清理过期订单）
 func (r *OrderRepo) ListPendingOrders() ([]model.Order, error) {
 	var orders []model.Order
-	err := r.db.Where("status = ? AND expires_at > NOW()", model.OrderStatusPending).
+	err := r.db.Where("status = ?", model.OrderStatusPending).
 		Order("created_at ASC").Find(&orders).Error
 	return orders, err
 }
 
 // ExpireTimedOutOrders 将已过期的 pending 订单标记为 expired
+// 只标记超过 3 小时的订单，避免极限情况下用户最后一秒付款但订单已过期
 func (r *OrderRepo) ExpireTimedOutOrders() (int64, error) {
+	threeHoursAgo := time.Now().Add(-3 * time.Hour)
 	result := r.db.Model(&model.Order{}).
-		Where("status = ? AND expires_at <= NOW()", model.OrderStatusPending).
+		Where("status = ? AND expires_at <= ?", model.OrderStatusPending, threeHoursAgo).
 		Update("status", model.OrderStatusExpired)
 	return result.RowsAffected, result.Error
 }
