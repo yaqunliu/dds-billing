@@ -21,11 +21,49 @@ type OrderLogic struct {
 }
 
 func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client, rechargeLogic *RechargeLogic) *OrderLogic {
-	return &OrderLogic{
+	ol := &OrderLogic{
 		cfg:           cfg,
 		orderRepo:     orderRepo,
 		sub2api:       sub2apiClient,
 		rechargeLogic: rechargeLogic,
+	}
+	go ol.startPendingOrderChecker()
+	return ol
+}
+
+// startPendingOrderChecker 定时扫描 pending 订单并主动查单
+func (l *OrderLogic) startPendingOrderChecker() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	log.Printf("[checker] started, interval=60s")
+
+	for range ticker.C {
+		// 1. 清理过期订单
+		if expired, err := l.orderRepo.ExpireTimedOutOrders(); err != nil {
+			log.Printf("[checker] expire orders error: %v", err)
+		} else if expired > 0 {
+			log.Printf("[checker] marked %d orders as expired", expired)
+		}
+
+		// 2. 查询未过期的 pending 订单并主动查单
+		orders, err := l.orderRepo.ListPendingOrders()
+		if err != nil {
+			log.Printf("[checker] list pending orders error: %v", err)
+			continue
+		}
+
+		if len(orders) == 0 {
+			continue
+		}
+
+		log.Printf("[checker] found %d pending orders, checking...", len(orders))
+
+		for i := range orders {
+			if err := l.CheckAndUpdateOrder(&orders[i]); err != nil {
+				log.Printf("[checker] check order failed: order_no=%s, err=%v", orders[i].OrderNo, err)
+			}
+		}
 	}
 }
 
@@ -114,11 +152,18 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 
 // CheckAndUpdateOrder 主动查单并更新订单状态
 func (l *OrderLogic) CheckAndUpdateOrder(order *model.Order) error {
+	// 从数据库重新获取最新状态，防止并发场景下用旧数据
+	latest, err := l.orderRepo.GetByOrderNo(order.OrderNo)
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+
 	// 只处理 pending 状态的订单
-	if order.Status != model.OrderStatusPending {
-		log.Printf("[check] skip order_no=%s, status=%s (not pending)", order.OrderNo, order.Status)
+	if latest.Status != model.OrderStatusPending {
+		log.Printf("[check] skip order_no=%s, status=%s (not pending)", latest.OrderNo, latest.Status)
 		return nil
 	}
+	order = latest
 
 	log.Printf("[check] querying payment provider for order_no=%s", order.OrderNo)
 
