@@ -40,16 +40,22 @@ type CreateOrderResponse struct {
 
 // QueryOrderResponse 查询订单响应
 type QueryOrderResponse struct {
-	Code        int    `json:"code"`
-	Msg         string `json:"msg"`
-	TradeNo     string `json:"trade_no"`
-	OutTradeNo  string `json:"out_trade_no"`
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Money       string `json:"money"`
-	Status      int    `json:"status"` // 1为支付成功，0为未支付
-	Addtime     string `json:"addtime"`
-	Endtime     string `json:"endtime"`
+	Code       int             `json:"code"`
+	Msg        string          `json:"msg"`
+	TradeNo    string          `json:"trade_no"`
+	OutTradeNo string          `json:"out_trade_no"`
+	Type       string          `json:"type"`
+	Name       string          `json:"name"`
+	Money      string          `json:"money"`
+	Status     json.RawMessage `json:"status"` // 可能是 int 或 string，用 RawMessage 兼容
+	Addtime    string          `json:"addtime"`
+	Endtime    string          `json:"endtime"`
+}
+
+// IsPaid 判断支付状态：1 或 "1" 为支付成功
+func (r *QueryOrderResponse) IsPaid() bool {
+	s := string(r.Status)
+	return s == "1" || s == `"1"`
 }
 
 // CreateOrder 统一下单（mapi.php）

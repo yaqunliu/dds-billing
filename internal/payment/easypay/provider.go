@@ -109,8 +109,8 @@ func (p *Provider) QueryOrder(ctx context.Context, orderNo string) (*payment.Pay
 	}
 
 	// 检查支付状态：1 为支付成功，0 为未支付
-	if result.Status != 1 {
-		return nil, fmt.Errorf("order not paid: status=%d", result.Status)
+	if !result.IsPaid() {
+		return nil, fmt.Errorf("order not paid: status=%s", string(result.Status))
 	}
 
 	var payType payment.PaymentType
