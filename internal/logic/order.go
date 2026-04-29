@@ -27,7 +27,7 @@ func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient 
 		sub2api:       sub2apiClient,
 		rechargeLogic: rechargeLogic,
 	}
-	go ol.startPendingOrderChecker()
+	// go ol.startPendingOrderChecker()
 	return ol
 }
 
