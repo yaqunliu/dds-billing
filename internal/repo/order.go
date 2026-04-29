@@ -47,10 +47,11 @@ func (r *OrderRepo) ListByUserID(userID int64, offset, limit int) ([]model.Order
 	return orders, total, nil
 }
 
-// ListPendingOrders 查询所有 pending 订单（已由 ExpireTimedOutOrders 清理过期订单）
+// ListPendingOrders 查询最近 1 小时内创建的 pending 订单（已由 ExpireTimedOutOrders 清理过期订单）
 func (r *OrderRepo) ListPendingOrders() ([]model.Order, error) {
 	var orders []model.Order
-	err := r.db.Where("status = ?", model.OrderStatusPending).
+	since := time.Now().Add(-1 * time.Hour)
+	err := r.db.Where("status = ? AND created_at >= ?", model.OrderStatusPending, since).
 		Order("created_at ASC").Find(&orders).Error
 	return orders, err
 }

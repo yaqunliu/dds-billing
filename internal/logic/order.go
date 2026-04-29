@@ -27,7 +27,7 @@ func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient 
 		sub2api:       sub2apiClient,
 		rechargeLogic: rechargeLogic,
 	}
-	// go ol.startPendingOrderChecker()
+	go ol.startPendingOrderChecker()
 	return ol
 }
 
@@ -36,7 +36,7 @@ func (l *OrderLogic) startPendingOrderChecker() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	log.Printf("[checker] started, interval=60s")
+	log.Printf("[checker] started, interval=60s, pending_scan_window=1h")
 
 	for range ticker.C {
 		// 1. 清理过期订单
