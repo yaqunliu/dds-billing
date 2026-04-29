@@ -57,11 +57,11 @@ func (r *OrderRepo) ListPendingOrders() ([]model.Order, error) {
 }
 
 // ExpireTimedOutOrders 将已过期的 pending 订单标记为 expired
-// 只标记超过 3 小时的订单，避免极限情况下用户最后一秒付款但订单已过期
+// 只标记超过 1 小时的订单，避免极限情况下用户最后一秒付款但订单已过期
 func (r *OrderRepo) ExpireTimedOutOrders() (int64, error) {
-	threeHoursAgo := time.Now().Add(-3 * time.Hour)
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
 	result := r.db.Model(&model.Order{}).
-		Where("status = ? AND expires_at <= ?", model.OrderStatusPending, threeHoursAgo).
+		Where("status = ? AND expires_at <= ?", model.OrderStatusPending, oneHourAgo).
 		Update("status", model.OrderStatusExpired)
 	return result.RowsAffected, result.Error
 }
