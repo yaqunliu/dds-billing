@@ -118,10 +118,15 @@ func (p *Provider) VerifyNotification(ctx context.Context, body []byte, params m
 		}
 	}
 
+	payNo := ""
+	if session.PaymentIntent != nil {
+		payNo = session.PaymentIntent.ID
+	}
+
 	return &payment.PaymentNotification{
 		OrderNo:     orderNo,
 		TradeNo:     session.ID,
-		PayNo:       string(session.PaymentIntent.ID),
+		PayNo:       payNo,
 		Amount:      amountYuan,
 		PaymentType: payType,
 		PaidAt:      fmt.Sprintf("%d", event.Created),
@@ -140,6 +145,11 @@ func (p *Provider) QueryOrder(ctx context.Context, orderNo string) (*payment.Pay
 		return nil, fmt.Errorf("stripe retrieve session: %w", err)
 	}
 
+	// 只有 payment_status=paid 才算支付成功；其他状态（unpaid / no_payment_required）让调用方按未支付处理
+	if session.PaymentStatus != gostripe.CheckoutSessionPaymentStatusPaid {
+		return nil, fmt.Errorf("stripe session not paid: status=%s", session.PaymentStatus)
+	}
+
 	amountYuan := fmt.Sprintf("%.2f", float64(session.AmountTotal)/100)
 
 	var payType payment.PaymentType
@@ -152,10 +162,15 @@ func (p *Provider) QueryOrder(ctx context.Context, orderNo string) (*payment.Pay
 		}
 	}
 
+	payNo := ""
+	if session.PaymentIntent != nil {
+		payNo = session.PaymentIntent.ID
+	}
+
 	return &payment.PaymentNotification{
 		OrderNo:     session.ClientReferenceID,
 		TradeNo:     session.ID,
-		PayNo:       string(session.PaymentIntent.ID),
+		PayNo:       payNo,
 		Amount:      amountYuan,
 		PaymentType: payType,
 	}, nil
