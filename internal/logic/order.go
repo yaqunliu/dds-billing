@@ -170,7 +170,18 @@ func (l *OrderLogic) CheckAndUpdateOrder(order *model.Order) error {
 	provider := payment.GetActive(l.cfg)
 
 	// 调用支付渠道查单接口
-	notification, err := provider.QueryOrder(context.Background(), order.OrderNo)
+	// 注意：不同渠道查单的入参语义不同
+	//   - easypay: 用本地 order_no（out_trade_no）
+	//   - stripe:  用 Stripe Checkout Session ID（存在 trade_no 字段）
+	queryID := order.OrderNo
+	if provider.Name() == "stripe" {
+		if order.TradeNo == "" {
+			log.Printf("[check] skip order_no=%s, stripe trade_no empty", order.OrderNo)
+			return nil
+		}
+		queryID = order.TradeNo
+	}
+	notification, err := provider.QueryOrder(context.Background(), queryID)
 	if err != nil {
 		log.Printf("[check] query result: order_no=%s, not paid or error: %v", order.OrderNo, err)
 		return nil
