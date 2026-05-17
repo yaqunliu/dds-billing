@@ -20,6 +20,21 @@ type OrderLogic struct {
 	rechargeLogic *RechargeLogic
 }
 
+type CreateOrderRequest struct {
+	Token       string  `json:"token"`
+	Amount      float64 `json:"amount"`
+	PaymentType string  `json:"payment_type"` // wxpay / alipay
+}
+
+type CreateOrderResponse struct {
+	OrderNo   string  `json:"order_no"`
+	Amount    float64 `json:"amount"`
+	Status    string  `json:"status"`
+	QRCodeURL string  `json:"qr_code_url"`
+	PayURL    string  `json:"pay_url"`
+	ExpiresAt string  `json:"expires_at"`
+}
+
 func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client, rechargeLogic *RechargeLogic) *OrderLogic {
 	ol := &OrderLogic{
 		cfg:           cfg,
@@ -65,21 +80,6 @@ func (l *OrderLogic) startPendingOrderChecker() {
 			}
 		}
 	}
-}
-
-type CreateOrderRequest struct {
-	Token       string  `json:"token"`
-	Amount      float64 `json:"amount"`
-	PaymentType string  `json:"payment_type"` // wxpay / alipay
-}
-
-type CreateOrderResponse struct {
-	OrderNo   string  `json:"order_no"`
-	Amount    float64 `json:"amount"`
-	Status    string  `json:"status"`
-	QRCodeURL string  `json:"qr_code_url"`
-	PayURL    string  `json:"pay_url"`
-	ExpiresAt string  `json:"expires_at"`
 }
 
 func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, error) {

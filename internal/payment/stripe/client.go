@@ -43,6 +43,7 @@ func (c *Client) CreateCheckoutSession(ctx context.Context, orderNo string, amou
 		ClientReferenceID:  gostripe.String(orderNo),
 		Metadata: map[string]string{
 			"order_no": orderNo,
+			"project":  "dds-billing",
 		},
 	}
 
