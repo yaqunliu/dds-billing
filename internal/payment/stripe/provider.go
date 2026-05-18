@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 
 	"dds-billing/internal/config"
 	"dds-billing/internal/payment"
@@ -34,6 +33,66 @@ func (p *Provider) SupportedTypes() []payment.PaymentType {
 	return []payment.PaymentType{payment.PaymentTypeWxpay, payment.PaymentTypeAlipay}
 }
 
+// stripeMethodType 将业务 PaymentType 映射为 Stripe 的 payment_method_types 值
+func stripeMethodType(t payment.PaymentType) string {
+	switch t {
+	case payment.PaymentTypeWxpay:
+		return "wechat_pay"
+	case payment.PaymentTypeAlipay:
+		return "alipay"
+	}
+	return ""
+}
+
+// paymentTypeFromStripe 将 Stripe 的 payment_method_types 值映射为业务 PaymentType
+func paymentTypeFromStripe(s string) payment.PaymentType {
+	switch s {
+	case "wechat_pay":
+		return payment.PaymentTypeWxpay
+	case "alipay":
+		return payment.PaymentTypeAlipay
+	}
+	return ""
+}
+
+// nextActionURL 从 PaymentIntent.NextAction 中读取对应支付方式的跳转/二维码链接
+func nextActionURL(pi *gostripe.PaymentIntent, methodType string) string {
+	if pi == nil || pi.NextAction == nil {
+		return ""
+	}
+	switch methodType {
+	case "wechat_pay":
+		if pi.NextAction.WeChatPayDisplayQRCode != nil {
+			return pi.NextAction.WeChatPayDisplayQRCode.Data
+		}
+	case "alipay":
+		if pi.NextAction.AlipayHandleRedirect != nil {
+			return pi.NextAction.AlipayHandleRedirect.URL
+		}
+	}
+	return ""
+}
+
+// paymentIntentToNotification 把 PaymentIntent 转换为通知结构（webhook 与查询共用）
+func paymentIntentToNotification(pi *gostripe.PaymentIntent) *payment.PaymentNotification {
+	orderNo := ""
+	if v, ok := pi.Metadata["order_no"]; ok {
+		orderNo = v
+	}
+	amountYuan := fmt.Sprintf("%.2f", float64(pi.Amount)/100)
+	var payType payment.PaymentType
+	if len(pi.PaymentMethodTypes) > 0 {
+		payType = paymentTypeFromStripe(pi.PaymentMethodTypes[0])
+	}
+	return &payment.PaymentNotification{
+		OrderNo:     orderNo,
+		TradeNo:     pi.ID,
+		PayNo:       pi.ID,
+		Amount:      amountYuan,
+		PaymentType: payType,
+	}
+}
+
 func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
 	// 将金额从元转为分（Stripe 使用最小货币单位）
 	amountFloat, err := strconv.ParseFloat(req.Amount, 64)
@@ -46,44 +105,31 @@ func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentR
 		ctx = context.Background()
 	}
 
-	switch req.PaymentType {
-	case payment.PaymentTypeWxpay:
-		// 微信支付走 PaymentIntent 直连方式，next_action 里返回 weixin:// 链接
-		// 前端用它生成二维码，微信扫码可直接拉起支付（避免 Checkout 页二次扫码）
-		pi, err := p.client.CreateWeChatPayIntent(ctx, req.OrderNo, amountCents, "cny")
-		if err != nil {
-			return nil, fmt.Errorf("stripe create wechat payment intent: %w", err)
-		}
-		payURL := ""
-		if pi.NextAction != nil && pi.NextAction.WeChatPayDisplayQRCode != nil {
-			payURL = pi.NextAction.WeChatPayDisplayQRCode.Data
-		}
-		if payURL == "" {
-			return nil, fmt.Errorf("stripe wechat pay: empty qr code data, status=%s", pi.Status)
-		}
-		return &payment.CreatePaymentResponse{
-			TradeNo:   pi.ID, // pi_xxx
-			PayURL:    payURL,
-			QRCodeURL: "",
-		}, nil
-
-	case payment.PaymentTypeAlipay:
-		// 支付宝保持 Checkout Session 流程不变
-		successURL := p.cfg.SuccessURL + "?order_no=" + req.OrderNo + "&status=success"
-		cancelURL := p.cfg.CancelURL + "?order_no=" + req.OrderNo + "&status=cancel"
-		session, err := p.client.CreateCheckoutSession(ctx, req.OrderNo, amountCents, "cny", "alipay", successURL, cancelURL)
-		if err != nil {
-			return nil, fmt.Errorf("stripe create checkout session: %w", err)
-		}
-		return &payment.CreatePaymentResponse{
-			TradeNo:   session.ID, // cs_xxx
-			PayURL:    session.URL,
-			QRCodeURL: "",
-		}, nil
-
-	default:
+	methodType := stripeMethodType(req.PaymentType)
+	if methodType == "" {
 		return nil, fmt.Errorf("unsupported payment type: %s", req.PaymentType)
 	}
+
+	// alipay 必须带 return_url；wechat_pay 不需要
+	returnURL := ""
+	if methodType == "alipay" {
+		returnURL = p.cfg.SuccessURL + "?order_no=" + req.OrderNo + "&status=success"
+	}
+
+	pi, err := p.client.CreatePaymentIntent(ctx, req.OrderNo, amountCents, "cny", methodType, returnURL)
+	if err != nil {
+		return nil, fmt.Errorf("stripe create payment intent: %w", err)
+	}
+
+	payURL := nextActionURL(pi, methodType)
+	if payURL == "" {
+		return nil, fmt.Errorf("stripe %s: empty pay url, status=%s", methodType, pi.Status)
+	}
+	return &payment.CreatePaymentResponse{
+		TradeNo:   pi.ID, // pi_xxx
+		PayURL:    payURL,
+		QRCodeURL: "",
+	}, nil
 }
 
 func (p *Provider) VerifyNotification(ctx context.Context, body []byte, params map[string]string) (*payment.PaymentNotification, error) {
@@ -97,162 +143,37 @@ func (p *Provider) VerifyNotification(ctx context.Context, body []byte, params m
 		return nil, err
 	}
 
+	if event.Type != "payment_intent.succeeded" {
+		return nil, fmt.Errorf("%w: %s", payment.ErrEventIgnored, event.Type)
+	}
+
 	jsonData, err := json.Marshal(event.Data.Object)
 	if err != nil {
 		return nil, fmt.Errorf("marshal event data: %w", err)
 	}
 
-	switch event.Type {
-	case "checkout.session.completed":
-		// 支付宝 Checkout Session 完成
-		var session gostripe.CheckoutSession
-		if err := json.Unmarshal(jsonData, &session); err != nil {
-			return nil, fmt.Errorf("parse checkout session from event: %w", err)
-		}
-
-		orderNo := session.ClientReferenceID
-		if orderNo == "" {
-			if v, ok := session.Metadata["order_no"]; ok {
-				orderNo = v
-			}
-		}
-
-		amountYuan := fmt.Sprintf("%.2f", float64(session.AmountTotal)/100)
-
-		var payType payment.PaymentType
-		if len(session.PaymentMethodTypes) > 0 {
-			switch session.PaymentMethodTypes[0] {
-			case "wechat_pay":
-				payType = payment.PaymentTypeWxpay
-			case "alipay":
-				payType = payment.PaymentTypeAlipay
-			}
-		}
-
-		payNo := ""
-		if session.PaymentIntent != nil {
-			payNo = session.PaymentIntent.ID
-		}
-
-		return &payment.PaymentNotification{
-			OrderNo:     orderNo,
-			TradeNo:     session.ID,
-			PayNo:       payNo,
-			Amount:      amountYuan,
-			PaymentType: payType,
-			PaidAt:      fmt.Sprintf("%d", event.Created),
-		}, nil
-
-	case "payment_intent.succeeded":
-		// 微信支付 PaymentIntent 直连流程
-		var pi gostripe.PaymentIntent
-		if err := json.Unmarshal(jsonData, &pi); err != nil {
-			return nil, fmt.Errorf("parse payment intent from event: %w", err)
-		}
-
-		orderNo := ""
-		if v, ok := pi.Metadata["order_no"]; ok {
-			orderNo = v
-		}
-
-		amountYuan := fmt.Sprintf("%.2f", float64(pi.Amount)/100)
-
-		var payType payment.PaymentType
-		if len(pi.PaymentMethodTypes) > 0 {
-			switch pi.PaymentMethodTypes[0] {
-			case "wechat_pay":
-				payType = payment.PaymentTypeWxpay
-			case "alipay":
-				payType = payment.PaymentTypeAlipay
-			}
-		}
-
-		return &payment.PaymentNotification{
-			OrderNo:     orderNo,
-			TradeNo:     pi.ID,
-			PayNo:       pi.ID,
-			Amount:      amountYuan,
-			PaymentType: payType,
-			PaidAt:      fmt.Sprintf("%d", event.Created),
-		}, nil
-
-	default:
-		return nil, fmt.Errorf("%w: %s", payment.ErrEventIgnored, event.Type)
+	var pi gostripe.PaymentIntent
+	if err := json.Unmarshal(jsonData, &pi); err != nil {
+		return nil, fmt.Errorf("parse payment intent from event: %w", err)
 	}
+
+	n := paymentIntentToNotification(&pi)
+	n.PaidAt = fmt.Sprintf("%d", event.Created)
+	return n, nil
 }
 
 func (p *Provider) QueryOrder(ctx context.Context, tradeNo string) (*payment.PaymentNotification, error) {
-	// tradeNo 是创建支付时返回的渠道单号：
-	//   - cs_xxx → Checkout Session（支付宝）
-	//   - pi_xxx → PaymentIntent（微信支付）
+	// tradeNo 为创建支付时返回的 PaymentIntent ID（pi_xxx）
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	if strings.HasPrefix(tradeNo, "pi_") {
-		pi, err := p.client.RetrievePaymentIntent(ctx, tradeNo)
-		if err != nil {
-			return nil, fmt.Errorf("stripe retrieve payment intent: %w", err)
-		}
-		if pi.Status != gostripe.PaymentIntentStatusSucceeded {
-			return nil, fmt.Errorf("stripe payment intent not succeeded: status=%s", pi.Status)
-		}
-
-		orderNo := ""
-		if v, ok := pi.Metadata["order_no"]; ok {
-			orderNo = v
-		}
-		amountYuan := fmt.Sprintf("%.2f", float64(pi.Amount)/100)
-		var payType payment.PaymentType
-		if len(pi.PaymentMethodTypes) > 0 {
-			switch pi.PaymentMethodTypes[0] {
-			case "wechat_pay":
-				payType = payment.PaymentTypeWxpay
-			case "alipay":
-				payType = payment.PaymentTypeAlipay
-			}
-		}
-		return &payment.PaymentNotification{
-			OrderNo:     orderNo,
-			TradeNo:     pi.ID,
-			PayNo:       pi.ID,
-			Amount:      amountYuan,
-			PaymentType: payType,
-		}, nil
-	}
-
-	session, err := p.client.RetrieveSession(ctx, tradeNo)
+	pi, err := p.client.RetrievePaymentIntent(ctx, tradeNo)
 	if err != nil {
-		return nil, fmt.Errorf("stripe retrieve session: %w", err)
+		return nil, fmt.Errorf("stripe retrieve payment intent: %w", err)
 	}
-
-	// 只有 payment_status=paid 才算支付成功；其他状态（unpaid / no_payment_required）让调用方按未支付处理
-	if session.PaymentStatus != gostripe.CheckoutSessionPaymentStatusPaid {
-		return nil, fmt.Errorf("stripe session not paid: status=%s", session.PaymentStatus)
+	if pi.Status != gostripe.PaymentIntentStatusSucceeded {
+		return nil, fmt.Errorf("stripe payment intent not succeeded: status=%s", pi.Status)
 	}
-
-	amountYuan := fmt.Sprintf("%.2f", float64(session.AmountTotal)/100)
-
-	var payType payment.PaymentType
-	if len(session.PaymentMethodTypes) > 0 {
-		switch session.PaymentMethodTypes[0] {
-		case "wechat_pay":
-			payType = payment.PaymentTypeWxpay
-		case "alipay":
-			payType = payment.PaymentTypeAlipay
-		}
-	}
-
-	payNo := ""
-	if session.PaymentIntent != nil {
-		payNo = session.PaymentIntent.ID
-	}
-
-	return &payment.PaymentNotification{
-		OrderNo:     session.ClientReferenceID,
-		TradeNo:     session.ID,
-		PayNo:       payNo,
-		Amount:      amountYuan,
-		PaymentType: payType,
-	}, nil
+	return paymentIntentToNotification(pi), nil
 }

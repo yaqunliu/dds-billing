@@ -20,66 +20,19 @@ func NewClient(cfg config.StripeConfig) *Client {
 	return &Client{cfg: cfg, stripe: sc}
 }
 
-// CreateCheckoutSession 创建 Checkout Session
-// amountCents 为最小货币单位（分）
-func (c *Client) CreateCheckoutSession(ctx context.Context, orderNo string, amountCents int64, currency string, paymentMethodType string, successURL, cancelURL string) (*gostripe.CheckoutSession, error) {
-	params := &gostripe.CheckoutSessionCreateParams{
-		Mode: gostripe.String(string(gostripe.CheckoutSessionModePayment)),
-		LineItems: []*gostripe.CheckoutSessionCreateLineItemParams{
-			{
-				PriceData: &gostripe.CheckoutSessionCreateLineItemPriceDataParams{
-					Currency: gostripe.String(currency),
-					ProductData: &gostripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
-						Name: gostripe.String("账户充值"),
-					},
-					UnitAmount: gostripe.Int64(amountCents),
-				},
-				Quantity: gostripe.Int64(1),
-			},
-		},
-		PaymentMethodTypes: []*string{gostripe.String(paymentMethodType)},
-		SuccessURL:         gostripe.String(successURL),
-		CancelURL:          gostripe.String(cancelURL),
-		ClientReferenceID:  gostripe.String(orderNo),
-		Metadata: map[string]string{
-			"order_no": orderNo,
-			"project":  "dds-billing",
-		},
-	}
-
-	// wechat_pay 需要指定 client 类型
-	if paymentMethodType == "wechat_pay" {
-		params.PaymentMethodOptions = &gostripe.CheckoutSessionCreatePaymentMethodOptionsParams{
-			WeChatPay: &gostripe.CheckoutSessionCreatePaymentMethodOptionsWeChatPayParams{
-				Client: gostripe.String("web"),
-			},
-		}
-	}
-
-	return c.stripe.V1CheckoutSessions.Create(ctx, params)
-}
-
-// RetrieveSession 查询 Session 状态
-func (c *Client) RetrieveSession(ctx context.Context, sessionID string) (*gostripe.CheckoutSession, error) {
-	return c.stripe.V1CheckoutSessions.Retrieve(ctx, sessionID, nil)
-}
-
-// CreateWeChatPayIntent 创建并立即 confirm 一个微信支付的 PaymentIntent
-// 返回的 PaymentIntent.NextAction.WeChatPayDisplayQRCode.Data 是 weixin://wxpay/bizpayurl 链接，
-// 前端用它生成二维码后，微信扫码可直接拉起支付。
-func (c *Client) CreateWeChatPayIntent(ctx context.Context, orderNo string, amountCents int64, currency string) (*gostripe.PaymentIntent, error) {
+// CreatePaymentIntent 创建并立即 confirm 一个 PaymentIntent（微信/支付宝统一走此路径）。
+// 返回后由调用方从 NextAction 中读取对应的支付链接：
+//   - wechat_pay: NextAction.WeChatPayDisplayQRCode.Data（weixin:// 链接，前端生成二维码）
+//   - alipay:    NextAction.AlipayHandleRedirect.URL（Stripe 托管跳转链接，避免 Checkout 强制收集邮箱）
+//
+// returnURL 仅 alipay 需要：支付完成后浏览器跳回的地址。
+func (c *Client) CreatePaymentIntent(ctx context.Context, orderNo string, amountCents int64, currency, methodType, returnURL string) (*gostripe.PaymentIntent, error) {
 	params := &gostripe.PaymentIntentCreateParams{
 		Amount:             gostripe.Int64(amountCents),
 		Currency:           gostripe.String(currency),
-		PaymentMethodTypes: []*string{gostripe.String("wechat_pay")},
+		PaymentMethodTypes: []*string{gostripe.String(methodType)},
 		PaymentMethodData: &gostripe.PaymentIntentCreatePaymentMethodDataParams{
-			Type:      gostripe.String("wechat_pay"),
-			WeChatPay: &gostripe.PaymentMethodWeChatPayParams{},
-		},
-		PaymentMethodOptions: &gostripe.PaymentIntentCreatePaymentMethodOptionsParams{
-			WeChatPay: &gostripe.PaymentIntentCreatePaymentMethodOptionsWeChatPayParams{
-				Client: gostripe.String("web"),
-			},
+			Type: gostripe.String(methodType),
 		},
 		Confirm: gostripe.Bool(true),
 		Metadata: map[string]string{
@@ -87,6 +40,22 @@ func (c *Client) CreateWeChatPayIntent(ctx context.Context, orderNo string, amou
 			"project":  "dds-billing",
 		},
 	}
+
+	switch methodType {
+	case "wechat_pay":
+		params.PaymentMethodData.WeChatPay = &gostripe.PaymentMethodWeChatPayParams{}
+		params.PaymentMethodOptions = &gostripe.PaymentIntentCreatePaymentMethodOptionsParams{
+			WeChatPay: &gostripe.PaymentIntentCreatePaymentMethodOptionsWeChatPayParams{
+				Client: gostripe.String("web"),
+			},
+		}
+	case "alipay":
+		params.PaymentMethodData.Alipay = &gostripe.PaymentMethodAlipayParams{}
+		if returnURL != "" {
+			params.ReturnURL = gostripe.String(returnURL)
+		}
+	}
+
 	return c.stripe.V1PaymentIntents.Create(ctx, params)
 }
 
