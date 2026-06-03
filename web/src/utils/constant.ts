@@ -2,7 +2,7 @@ import alipayIcon from "../assets/alipay.jpg";
 import wechatIcon from "../assets/wechat.png";
 import { PAY_MESSAGES } from "./locale";
 
-export const QUICK_AMOUNTS = [20, 50, 100, 200, 400, 600];
+export const QUICK_AMOUNTS = [30, 50, 100, 200, 400, 600];
 
 export const PAYMENT_TYPE_CONFIG = {
   wxpay: {
