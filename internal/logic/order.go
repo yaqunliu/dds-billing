@@ -28,13 +28,15 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderResponse struct {
-	OrderNo      string  `json:"order_no"`
-	Amount       float64 `json:"amount"`
-	Status       string  `json:"status"`
-	QRCodeURL    string  `json:"qr_code_url"`
-	PayURL       string  `json:"pay_url"`
-	ClientSecret string  `json:"client_secret,omitempty"` // 信用卡内嵌 Checkout 用
-	ExpiresAt    string  `json:"expires_at"`
+	OrderNo        string  `json:"order_no"`
+	Amount         float64 `json:"amount"`
+	Status         string  `json:"status"`
+	QRCodeURL      string  `json:"qr_code_url"`
+	PayURL         string  `json:"pay_url"`
+	ClientSecret   string  `json:"client_secret,omitempty"`   // 信用卡 Payment Element 用
+	ChargeAmount   float64 `json:"charge_amount,omitempty"`   // 信用卡实际扣款金额（外币）
+	ChargeCurrency string  `json:"charge_currency,omitempty"` // 信用卡实际扣款币种
+	ExpiresAt      string  `json:"expires_at"`
 }
 
 func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client, rechargeLogic *RechargeLogic) *OrderLogic {
@@ -152,13 +154,15 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 	log.Printf("[order] created: no=%s, user=%d, amount=%.2f, provider=%s", orderNo, user.ID, req.Amount, provider.Name())
 
 	return &CreateOrderResponse{
-		OrderNo:      orderNo,
-		Amount:       req.Amount,
-		Status:       string(model.OrderStatusPending),
-		QRCodeURL:    payResp.QRCodeURL,
-		PayURL:       payResp.PayURL,
-		ClientSecret: payResp.ClientSecret,
-		ExpiresAt:    expiresAt.Format(time.RFC3339),
+		OrderNo:        orderNo,
+		Amount:         req.Amount,
+		Status:         string(model.OrderStatusPending),
+		QRCodeURL:      payResp.QRCodeURL,
+		PayURL:         payResp.PayURL,
+		ClientSecret:   payResp.ClientSecret,
+		ChargeAmount:   payResp.ChargeAmount,
+		ChargeCurrency: payResp.ChargeCurrency,
+		ExpiresAt:      expiresAt.Format(time.RFC3339),
 	}, nil
 }
 

@@ -31,6 +31,8 @@ export default function Pay() {
   // 信用卡内嵌收银台
   const [clientSecret, setClientSecret] = useState("");
   const [showCard, setShowCard] = useState(false);
+  const [chargeAmount, setChargeAmount] = useState(0);
+  const [chargeCurrency, setChargeCurrency] = useState("usd");
 
   useEffect(() => {
     getConfig()
@@ -104,6 +106,8 @@ export default function Pay() {
           }
           setOrderNo(res.data.data.order_no);
           setClientSecret(res.data.data.client_secret);
+          setChargeAmount(res.data.data.charge_amount ?? Number(amount));
+          setChargeCurrency(res.data.data.charge_currency ?? "cny");
           setShowCard(true);
           return;
         }
@@ -365,7 +369,9 @@ export default function Pay() {
           publishableKey={config.publishable_key}
           clientSecret={clientSecret}
           orderNo={orderNo}
-          amount={Number(amount)}
+          chargeAmount={chargeAmount}
+          chargeCurrency={chargeCurrency}
+          cnyAmount={Number(amount)}
           isDark={isDark}
           lang={appLang}
           onClose={() => setShowCard(false)}

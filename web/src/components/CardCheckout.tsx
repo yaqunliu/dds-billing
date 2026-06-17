@@ -12,7 +12,9 @@ interface Props {
   publishableKey: string;
   clientSecret: string;
   orderNo: string;
-  amount: number;
+  chargeAmount: number; // 实际扣款金额（外币，如美元）
+  chargeCurrency: string; // 实际扣款币种，如 usd
+  cnyAmount: number; // 对应的人民币充值金额（用于说明到账额度）
   isDark: boolean;
   lang: "zh" | "en";
   onClose: () => void;
@@ -27,13 +29,27 @@ function getStripe(pk: string): Promise<Stripe | null> {
   return stripeCache[pk];
 }
 
+// 按币种格式化金额，如 usd → $28.17
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(amount);
+  } catch {
+    return `${currency.toUpperCase()} ${amount.toFixed(2)}`;
+  }
+}
+
 // 信用卡内嵌支付弹窗：使用 Payment Element 在页面内（Stripe 自有 iframe）渲染卡表单，
 // 整体可继续嵌在 sub2api 的 iframe 中，且不强制收集邮箱。
 export default function CardCheckout({
   publishableKey,
   clientSecret,
   orderNo,
-  amount,
+  chargeAmount,
+  chargeCurrency,
+  cnyAmount,
   isDark,
   lang,
   onClose,
@@ -66,12 +82,21 @@ export default function CardCheckout({
         </button>
 
         <h3
-          className={`mb-4 text-center text-lg font-semibold ${
+          className={`text-center text-lg font-semibold ${
             isDark ? "text-gray-100" : "text-gray-800"
           }`}
         >
           {lang === "zh" ? "信用卡支付" : "Card Payment"}
         </h3>
+        <p
+          className={`mb-4 mt-1 text-center text-xs ${
+            isDark ? "text-gray-400" : "text-gray-500"
+          }`}
+        >
+          {lang === "zh"
+            ? `为账户充值 ¥${cnyAmount.toFixed(2)}`
+            : `Top-up ¥${cnyAmount.toFixed(2)} to your account`}
+        </p>
 
         <Elements
           stripe={stripePromise}
@@ -83,7 +108,8 @@ export default function CardCheckout({
         >
           <CardForm
             orderNo={orderNo}
-            amount={amount}
+            chargeAmount={chargeAmount}
+            chargeCurrency={chargeCurrency}
             lang={lang}
             isDark={isDark}
           />
@@ -95,12 +121,14 @@ export default function CardCheckout({
 
 function CardForm({
   orderNo,
-  amount,
+  chargeAmount,
+  chargeCurrency,
   lang,
   isDark,
 }: {
   orderNo: string;
-  amount: number;
+  chargeAmount: number;
+  chargeCurrency: string;
   lang: "zh" | "en";
   isDark: boolean;
 }) {
@@ -187,8 +215,8 @@ function CardForm({
             ? "支付中..."
             : "Processing..."
           : lang === "zh"
-            ? `支付 ¥${amount.toFixed(2)}`
-            : `Pay ¥${amount.toFixed(2)}`}
+            ? `支付 ${formatMoney(chargeAmount, chargeCurrency)}`
+            : `Pay ${formatMoney(chargeAmount, chargeCurrency)}`}
       </button>
     </form>
   );

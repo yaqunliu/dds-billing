@@ -40,13 +40,14 @@ type EasypayConfig struct {
 }
 
 type StripeConfig struct {
-	SecretKey      string `yaml:"secret_key"`
-	PublishableKey string `yaml:"publishable_key"`
-	WebhookSecret  string `yaml:"webhook_secret"`
-	NotifyURL      string `yaml:"notify_url"`
-	SuccessURL     string `yaml:"success_url"`
-	CancelURL      string `yaml:"cancel_url"`
-	CardCurrency   string `yaml:"card_currency"` // 信用卡计价币种，默认 cny
+	SecretKey      string  `yaml:"secret_key"`
+	PublishableKey string  `yaml:"publishable_key"`
+	WebhookSecret  string  `yaml:"webhook_secret"`
+	NotifyURL      string  `yaml:"notify_url"`
+	SuccessURL     string  `yaml:"success_url"`
+	CancelURL      string  `yaml:"cancel_url"`
+	CardCurrency   string  `yaml:"card_currency"` // 信用卡计价币种，默认 cny；设为 usd 等外币则按 card_fx_rate 换算扣款
+	CardFxRate     float64 `yaml:"card_fx_rate"`  // 1 个 card_currency 单位 = 多少人民币（如 usd≈7.2）；card_currency!=cny 时必填
 }
 
 type Sub2APIConfig struct {
@@ -87,6 +88,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Stripe.CardCurrency == "" {
 		cfg.Stripe.CardCurrency = "cny"
+	}
+	if cfg.Stripe.CardFxRate == 0 {
+		cfg.Stripe.CardFxRate = 7.2 // 缺省汇率，正式环境应在配置中按实际值设置
 	}
 	if cfg.Billing.CardMinAmount == 0 {
 		cfg.Billing.CardMinAmount = 200

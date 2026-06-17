@@ -113,7 +113,20 @@ func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentR
 		if currency == "" {
 			currency = "cny"
 		}
-		pi, err := p.client.CreateCardPaymentIntent(ctx, req.OrderNo, amountCents, currency)
+		// 面向国外用户：把人民币金额按汇率换算为信用卡计价币种（如 usd）后扣款。
+		// card_currency=cny 时不换算，保持人民币扣款。
+		chargeAmount := amountFloat
+		if currency != "cny" {
+			rate := p.cfg.CardFxRate
+			if rate <= 0 {
+				return nil, fmt.Errorf("card fx rate not configured (card_fx_rate)")
+			}
+			chargeAmount = amountFloat / rate
+		}
+		chargeCents := int64(math.Round(chargeAmount * 100))
+		chargeAmount = float64(chargeCents) / 100 // 与实际扣款分对齐，避免展示与扣款不一致
+
+		pi, err := p.client.CreateCardPaymentIntent(ctx, req.OrderNo, chargeCents, currency)
 		if err != nil {
 			return nil, fmt.Errorf("stripe create card payment intent: %w", err)
 		}
@@ -121,8 +134,10 @@ func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentR
 			return nil, fmt.Errorf("stripe card: empty client secret, status=%s", pi.Status)
 		}
 		return &payment.CreatePaymentResponse{
-			TradeNo:      pi.ID, // pi_xxx
-			ClientSecret: pi.ClientSecret,
+			TradeNo:        pi.ID, // pi_xxx
+			ClientSecret:   pi.ClientSecret,
+			ChargeAmount:   chargeAmount,
+			ChargeCurrency: currency,
 		}, nil
 	}
 

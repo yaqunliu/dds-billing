@@ -28,10 +28,12 @@ type CreatePaymentRequest struct {
 
 // CreatePaymentResponse 创建支付响应
 type CreatePaymentResponse struct {
-	TradeNo      string // 渠道系统订单号
-	PayURL       string // 支付链接
-	QRCodeURL    string // 二维码图片地址
-	ClientSecret string // 预留：内嵌(Payment Element)模式返回，托管页模式留空
+	TradeNo        string  // 渠道系统订单号
+	PayURL         string  // 支付链接
+	QRCodeURL      string  // 二维码图片地址
+	ClientSecret   string  // 内嵌(Payment Element)模式返回，其他模式留空
+	ChargeAmount   float64 // 实际扣款金额（信用卡按汇率换算后的外币金额；其他方式为人民币金额）
+	ChargeCurrency string  // 实际扣款币种，如 usd / cny
 }
 
 // PaymentNotification 回调通知数据
