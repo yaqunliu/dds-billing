@@ -22,7 +22,8 @@ stripe:
   success_url: "https://your-domain.com/pay/result" # 支付成功跳转
   cancel_url: "https://your-domain.com/pay" # 取消支付跳转
   card_currency: "usd" # 信用卡计价币种（usd=用美元扣款；cny=用人民币扣款由持卡行换算）
-  card_fx_rate: 7.2 # 1 美元 = 多少人民币（card_currency=usd 时用于把 ¥金额换算成美元扣款），建议留点缓冲
+  card_fx_api: "https://open.er-api.com/v6/latest/USD" # 实时汇率接口（USD 基准），留空用默认
+  card_fx_rate: 7 # 兜底汇率：实时拉取失败时 1 美元 = 多少人民币
 
 # 易支付协议（启象支付/ZPAY/其他基于易支付协议的渠道商）
 # 切换渠道商只需改 api_base 和密钥

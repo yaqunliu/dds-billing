@@ -46,8 +46,9 @@ type StripeConfig struct {
 	NotifyURL      string  `yaml:"notify_url"`
 	SuccessURL     string  `yaml:"success_url"`
 	CancelURL      string  `yaml:"cancel_url"`
-	CardCurrency   string  `yaml:"card_currency"` // 信用卡计价币种，默认 cny；设为 usd 等外币则按 card_fx_rate 换算扣款
-	CardFxRate     float64 `yaml:"card_fx_rate"`  // 1 个 card_currency 单位 = 多少人民币（如 usd≈7.2）；card_currency!=cny 时必填
+	CardCurrency   string  `yaml:"card_currency"` // 信用卡计价币种，默认 cny；设为 usd 等外币则按实时汇率换算扣款
+	CardFxAPI      string  `yaml:"card_fx_api"`   // 实时汇率接口（USD 基准），留空用默认
+	CardFxRate     float64 `yaml:"card_fx_rate"`  // 兜底汇率：实时拉取失败时 1 美元 = 多少人民币
 }
 
 type Sub2APIConfig struct {
@@ -90,7 +91,7 @@ func Load(path string) (*Config, error) {
 		cfg.Stripe.CardCurrency = "cny"
 	}
 	if cfg.Stripe.CardFxRate == 0 {
-		cfg.Stripe.CardFxRate = 7.2 // 缺省汇率，正式环境应在配置中按实际值设置
+		cfg.Stripe.CardFxRate = 7 // 兜底汇率（实时拉取失败时用）
 	}
 	if cfg.Billing.CardMinAmount == 0 {
 		cfg.Billing.CardMinAmount = 200

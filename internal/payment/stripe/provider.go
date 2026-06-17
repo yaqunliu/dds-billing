@@ -16,12 +16,14 @@ import (
 type Provider struct {
 	client *Client
 	cfg    config.StripeConfig
+	fx     *fxRater
 }
 
 func NewProvider(cfg config.StripeConfig) *Provider {
 	return &Provider{
 		client: NewClient(cfg),
 		cfg:    cfg,
+		fx:     newFxRater(cfg.CardFxAPI, cfg.CardFxRate),
 	}
 }
 
@@ -113,13 +115,13 @@ func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentR
 		if currency == "" {
 			currency = "cny"
 		}
-		// 面向国外用户：把人民币金额按汇率换算为信用卡计价币种（如 usd）后扣款。
+		// 面向国外用户：把人民币金额按实时汇率换算为信用卡计价币种（如 usd）后扣款。
 		// card_currency=cny 时不换算，保持人民币扣款。
 		chargeAmount := amountFloat
 		if currency != "cny" {
-			rate := p.cfg.CardFxRate
+			rate := p.fx.CNYPer(ctx, currency) // 1 个 currency 单位 = 多少人民币（含兜底）
 			if rate <= 0 {
-				return nil, fmt.Errorf("card fx rate not configured (card_fx_rate)")
+				return nil, fmt.Errorf("invalid fx rate for currency %s", currency)
 			}
 			chargeAmount = amountFloat / rate
 		}
