@@ -11,8 +11,9 @@ payment:
   enabled_types:
     - wxpay
     - alipay
+    - card # 国际信用卡
 
-# Stripe（支持微信/支付宝）
+# Stripe（支持微信/支付宝/信用卡）
 stripe:
   secret_key: "sk_test_xxx" # Stripe Secret Key
   publishable_key: "pk_test_xxx" # Stripe Publishable Key
@@ -20,6 +21,7 @@ stripe:
   notify_url: "https://your-domain.com/api/notify/stripe"
   success_url: "https://your-domain.com/pay/result" # 支付成功跳转
   cancel_url: "https://your-domain.com/pay" # 取消支付跳转
+  card_currency: "cny" # 信用卡计价币种（默认 cny，由持卡人银行按汇率换算扣款）
 
 # 易支付协议（启象支付/ZPAY/其他基于易支付协议的渠道商）
 # 切换渠道商只需改 api_base 和密钥
@@ -39,4 +41,5 @@ sub2api:
 billing:
   min_amount: 5.00
   max_amount: 3000.00
+  card_min_amount: 200.00 # 信用卡最低起充
   order_timeout_minutes: 5

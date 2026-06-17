@@ -64,6 +64,22 @@ func (c *Client) RetrievePaymentIntent(ctx context.Context, intentID string) (*g
 	return c.stripe.V1PaymentIntents.Retrieve(ctx, intentID, nil)
 }
 
+// CreateCardPaymentIntent 创建信用卡 PaymentIntent（不 confirm），供前端 Payment Element 内嵌确认。
+// 卡表单在前端页面内（Stripe 自有 iframe）渲染，可嵌入 sub2api 的 iframe，且不强制收集邮箱。
+// 返回的 ClientSecret 交前端 stripe.confirmPayment 完成支付。
+func (c *Client) CreateCardPaymentIntent(ctx context.Context, orderNo string, amountCents int64, currency string) (*gostripe.PaymentIntent, error) {
+	params := &gostripe.PaymentIntentCreateParams{
+		Amount:             gostripe.Int64(amountCents),
+		Currency:           gostripe.String(currency),
+		PaymentMethodTypes: []*string{gostripe.String("card")},
+		Metadata: map[string]string{
+			"order_no": orderNo,
+			"project":  "dds-billing",
+		},
+	}
+	return c.stripe.V1PaymentIntents.Create(ctx, params)
+}
+
 // VerifyWebhook 验证 webhook 签名并解析事件
 func VerifyWebhook(payload []byte, sigHeader string, webhookSecret string) (*gostripe.Event, error) {
 	event, err := gostripe.ConstructEvent(payload, sigHeader, webhookSecret, gostripe.WithIgnoreAPIVersionMismatch())

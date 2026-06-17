@@ -30,7 +30,7 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) SupportedTypes() []payment.PaymentType {
-	return []payment.PaymentType{payment.PaymentTypeWxpay, payment.PaymentTypeAlipay}
+	return []payment.PaymentType{payment.PaymentTypeWxpay, payment.PaymentTypeAlipay, payment.PaymentTypeCard}
 }
 
 // stripeMethodType 将业务 PaymentType 映射为 Stripe 的 payment_method_types 值
@@ -51,6 +51,8 @@ func paymentTypeFromStripe(s string) payment.PaymentType {
 		return payment.PaymentTypeWxpay
 	case "alipay":
 		return payment.PaymentTypeAlipay
+	case "card":
+		return payment.PaymentTypeCard
 	}
 	return ""
 }
@@ -105,6 +107,25 @@ func (p *Provider) CreatePayment(ctx context.Context, req payment.CreatePaymentR
 		ctx = context.Background()
 	}
 
+	// 信用卡：创建 PaymentIntent，前端用 Payment Element 内嵌确认（可嵌入 iframe，且不强制邮箱）
+	if req.PaymentType == payment.PaymentTypeCard {
+		currency := p.cfg.CardCurrency
+		if currency == "" {
+			currency = "cny"
+		}
+		pi, err := p.client.CreateCardPaymentIntent(ctx, req.OrderNo, amountCents, currency)
+		if err != nil {
+			return nil, fmt.Errorf("stripe create card payment intent: %w", err)
+		}
+		if pi.ClientSecret == "" {
+			return nil, fmt.Errorf("stripe card: empty client secret, status=%s", pi.Status)
+		}
+		return &payment.CreatePaymentResponse{
+			TradeNo:      pi.ID, // pi_xxx
+			ClientSecret: pi.ClientSecret,
+		}, nil
+	}
+
 	methodType := stripeMethodType(req.PaymentType)
 	if methodType == "" {
 		return nil, fmt.Errorf("unsupported payment type: %s", req.PaymentType)
@@ -143,27 +164,27 @@ func (p *Provider) VerifyNotification(ctx context.Context, body []byte, params m
 		return nil, err
 	}
 
-	if event.Type != "payment_intent.succeeded" {
-		return nil, fmt.Errorf("%w: %s", payment.ErrEventIgnored, event.Type)
-	}
-
 	jsonData, err := json.Marshal(event.Data.Object)
 	if err != nil {
 		return nil, fmt.Errorf("marshal event data: %w", err)
+	}
+
+	// 微信 / 支付宝 / 信用卡 均走 payment_intent.succeeded
+	if event.Type != "payment_intent.succeeded" {
+		return nil, fmt.Errorf("%w: %s", payment.ErrEventIgnored, event.Type)
 	}
 
 	var pi gostripe.PaymentIntent
 	if err := json.Unmarshal(jsonData, &pi); err != nil {
 		return nil, fmt.Errorf("parse payment intent from event: %w", err)
 	}
-
 	n := paymentIntentToNotification(&pi)
 	n.PaidAt = fmt.Sprintf("%d", event.Created)
 	return n, nil
 }
 
 func (p *Provider) QueryOrder(ctx context.Context, tradeNo string) (*payment.PaymentNotification, error) {
-	// tradeNo 为创建支付时返回的 PaymentIntent ID（pi_xxx）
+	// tradeNo 为 PaymentIntent ID（pi_xxx）：微信/支付宝/信用卡统一
 	if ctx == nil {
 		ctx = context.Background()
 	}

@@ -5,10 +5,13 @@ const api = axios.create({
   timeout: 10000,
 })
 
+export type PaymentType = 'wxpay' | 'alipay' | 'card'
+
 export interface OrderCreateRequest {
   token: string
   amount: number
-  payment_type: 'wxpay' | 'alipay'
+  payment_type: PaymentType
+  lang?: 'zh' | 'en'
 }
 
 export interface OrderData {
@@ -17,6 +20,7 @@ export interface OrderData {
   status: string
   qr_code_url: string
   pay_url: string
+  client_secret?: string
   expires_at: string
   paid_at?: string
 }
@@ -31,6 +35,8 @@ export interface AppConfig {
   enabled_types: string[]
   min_amount: number
   max_amount: number
+  card_min_amount: number
+  publishable_key?: string
 }
 
 export const getConfig = () => api.get<ApiResponse<AppConfig>>('/config')

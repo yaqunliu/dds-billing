@@ -27,9 +27,11 @@ func SetupRouter(cfg *config.Config, orderRepo *repo.OrderRepo, orderLogic *logi
 			c.JSON(200, gin.H{
 				"code": 0,
 				"data": gin.H{
-					"enabled_types": cfg.Payment.EnabledTypes,
-					"min_amount":    cfg.Billing.MinAmount,
-					"max_amount":    cfg.Billing.MaxAmount,
+					"enabled_types":   cfg.Payment.EnabledTypes,
+					"min_amount":      cfg.Billing.MinAmount,
+					"max_amount":      cfg.Billing.MaxAmount,
+					"card_min_amount": cfg.Billing.CardMinAmount,
+					"publishable_key": cfg.Stripe.PublishableKey, // 预留：内嵌(Payment Element)模式前端初始化用
 				},
 			})
 		})

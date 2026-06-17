@@ -26,6 +26,9 @@ type PayMessages = {
   paymentType: string;
   wechatPay: string;
   alipay: string;
+  creditCard: string;
+  cardMinTip: (min: number) => string;
+  redirectingToStripe: string;
   missingToken: string;
   createOrderFailed: string;
   networkError: string;
@@ -46,6 +49,9 @@ export const PAY_MESSAGES = {
     paymentType: "支付方式",
     wechatPay: "微信支付",
     alipay: "支付宝",
+    creditCard: "信用卡",
+    cardMinTip: (min: number) => `信用卡支付最低 ¥${min} 起充`,
+    redirectingToStripe: "正在跳转到安全支付页面...",
     missingToken: "缺少用户凭证，请从平台入口进入",
     createOrderFailed: "创建订单失败",
     networkError: "网络错误，请重试",
@@ -69,6 +75,9 @@ export const PAY_MESSAGES = {
     paymentType: "Payment Method",
     wechatPay: "WeChat Pay",
     alipay: "Alipay",
+    creditCard: "Credit Card",
+    cardMinTip: (min: number) => `Card payment requires a minimum of ¥${min}`,
+    redirectingToStripe: "Redirecting to secure checkout...",
     missingToken: "Missing user credentials. Please enter from the platform.",
     createOrderFailed: "Failed to create order",
     networkError: "Network error, please try again",

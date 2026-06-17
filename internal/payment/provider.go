@@ -13,6 +13,7 @@ type PaymentType string
 const (
 	PaymentTypeWxpay  PaymentType = "wxpay"
 	PaymentTypeAlipay PaymentType = "alipay"
+	PaymentTypeCard   PaymentType = "card" // 国际信用卡
 )
 
 // CreatePaymentRequest 创建支付请求
@@ -21,14 +22,16 @@ type CreatePaymentRequest struct {
 	Amount      string      // 支付金额（元）
 	Subject     string      // 商品描述
 	NotifyURL   string      // 回调通知地址
-	PaymentType PaymentType // wxpay / alipay
+	PaymentType PaymentType // wxpay / alipay / card
+	Locale      string      // 页面语言（预留），信用卡走 Payment Element 时由前端控制
 }
 
 // CreatePaymentResponse 创建支付响应
 type CreatePaymentResponse struct {
-	TradeNo   string // 渠道系统订单号
-	PayURL    string // 支付链接
-	QRCodeURL string // 二维码图片地址
+	TradeNo      string // 渠道系统订单号
+	PayURL       string // 支付链接
+	QRCodeURL    string // 二维码图片地址
+	ClientSecret string // 预留：内嵌(Payment Element)模式返回，托管页模式留空
 }
 
 // PaymentNotification 回调通知数据

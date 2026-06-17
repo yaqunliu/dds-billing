@@ -2,7 +2,12 @@ import { useState, useEffect } from "react";
 import { useUrlParams } from "../hooks/useUrlParams";
 import { getConfig, createOrder, type AppConfig } from "../api";
 import QRCodeModal from "../components/QRCode";
-import { QUICK_AMOUNTS, PAYMENT_TYPE_CONFIG } from "../utils/constant";
+import CardCheckout from "../components/CardCheckout";
+import {
+  QUICK_AMOUNTS,
+  CARD_QUICK_AMOUNTS,
+  PAYMENT_TYPE_CONFIG,
+} from "../utils/constant";
 import { normalizeLang } from "../utils/i18n";
 import { PAY_MESSAGES, pickLocale } from "../utils/locale";
 
@@ -10,7 +15,9 @@ export default function Pay() {
   const { token, theme, lang } = useUrlParams();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [amount, setAmount] = useState<number | string>("");
-  const [paymentType, setPaymentType] = useState<"wxpay" | "alipay">("alipay");
+  const [paymentType, setPaymentType] = useState<"wxpay" | "alipay" | "card">(
+    "alipay",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,6 +28,10 @@ export default function Pay() {
   const [expiresAt, setExpiresAt] = useState("");
   const [showQR, setShowQR] = useState(false);
 
+  // 信用卡内嵌收银台
+  const [clientSecret, setClientSecret] = useState("");
+  const [showCard, setShowCard] = useState(false);
+
   useEffect(() => {
     getConfig()
       .then((res) => {
@@ -29,30 +40,45 @@ export default function Pay() {
       .catch(() => {});
   }, []);
 
-  const isAmountValid =
-    amount !== "" &&
-    !isNaN(Number(amount)) &&
-    Number(amount) >= (config?.min_amount ?? 1) &&
-    Number(amount) <= (config?.max_amount ?? 20000);
-
-  const enabledTypes = config?.enabled_types ?? ["wxpay", "alipay"];
   const isDark = theme === "dark";
   const appLang = normalizeLang(lang);
   const t = pickLocale(PAY_MESSAGES, appLang);
-  const minAmount = config?.min_amount ?? 10;
+  const enabledTypes = config?.enabled_types ?? ["wxpay", "alipay"];
+
+  const baseMin = config?.min_amount ?? 10;
+  const cardMin = config?.card_min_amount ?? 200;
   const maxAmount = config?.max_amount ?? 20000;
-  const policyItems = t.policyItems(minAmount);
+
+  // 信用卡使用独立的最低起充金额
+  const isCard = paymentType === "card";
+  const effectiveMin = isCard ? cardMin : baseMin;
+  const quickAmounts = isCard ? CARD_QUICK_AMOUNTS : QUICK_AMOUNTS;
+
+  const isAmountValid =
+    amount !== "" &&
+    !isNaN(Number(amount)) &&
+    Number(amount) >= effectiveMin &&
+    Number(amount) <= maxAmount;
+
+  const policyItems = t.policyItems(baseMin);
 
   const handleAmountChange = (val: number | string) => {
     setAmount(val);
     setError("");
   };
 
+  // 切换支付方式：若切到信用卡且当前金额低于信用卡下限，清空金额避免无效提交
+  const handlePaymentTypeChange = (type: "wxpay" | "alipay" | "card") => {
+    setPaymentType(type);
+    setError("");
+    if (type === "card" && amount !== "" && Number(amount) < cardMin) {
+      setAmount("");
+    }
+  };
+
   const handleSubmit = async () => {
     if (!amount || !isAmountValid) {
-      setError(
-        t.amountRange(config?.min_amount ?? 1, config?.max_amount ?? 20000),
-      );
+      setError(t.amountRange(effectiveMin, maxAmount));
       return;
     }
     if (!token) {
@@ -67,9 +93,20 @@ export default function Pay() {
         token,
         amount: Number(amount),
         payment_type: paymentType,
+        lang: appLang,
       });
       if (res.data.code === 0) {
-        console.log(res.data.data);
+        // 信用卡：在页面内（iframe 内）打开内嵌收银台，不跳出顶层
+        if (paymentType === "card") {
+          if (!config?.publishable_key || !res.data.data.client_secret) {
+            setError(t.createOrderFailed);
+            return;
+          }
+          setOrderNo(res.data.data.order_no);
+          setClientSecret(res.data.data.client_secret);
+          setShowCard(true);
+          return;
+        }
         setOrderNo(res.data.data.order_no);
         setQrCodeUrl(res.data.data.qr_code_url);
         setPayUrl(res.data.data.pay_url);
@@ -93,7 +130,7 @@ export default function Pay() {
           : "bg-[radial-gradient(circle_at_top,_rgba(236,253,245,1),_rgba(248,250,252,1)_45%,_rgba(240,253,250,1)_100%)] text-slate-900"
       }`}
     >
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div
           className={`mb-6 rounded-[28px] border p-6 shadow-[0_18px_50px_rgba(16,185,129,0.12)] backdrop-blur md:p-8 ${
             isDark
@@ -150,7 +187,7 @@ export default function Pay() {
               <h2 className="text-2xl font-semibold sm:text-3xl">
                 {amount
                   ? `¥${Number(amount).toFixed(2)}`
-                  : `¥${minAmount} 起充`}
+                  : `¥${effectiveMin} 起充`}
               </h2>
               <p
                 className={`mt-2 text-sm ${
@@ -158,8 +195,8 @@ export default function Pay() {
                 }`}
               >
                 {appLang === "zh"
-                  ? `最低充值 ¥${minAmount}，单笔范围 ¥${minAmount} - ¥${maxAmount}`
-                  : `Minimum recharge ¥${minAmount}, range ¥${minAmount} - ¥${maxAmount}`}
+                  ? `最低充值 ¥${effectiveMin}，单笔范围 ¥${effectiveMin} - ¥${maxAmount}`
+                  : `Minimum recharge ¥${effectiveMin}, range ¥${effectiveMin} - ¥${maxAmount}`}
               </p>
             </div>
           </div>
@@ -177,10 +214,60 @@ export default function Pay() {
                   isDark ? "text-slate-300" : "text-slate-700"
                 }`}
               >
+                {t.paymentType}
+              </label>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {(enabledTypes as Array<keyof typeof PAYMENT_TYPE_CONFIG>).map(
+                  (type) => {
+                    const option = PAYMENT_TYPE_CONFIG[type];
+                    const label = option.getLabel(t);
+
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => handlePaymentTypeChange(type)}
+                        className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-3 text-sm font-medium transition-all ${
+                          paymentType === type
+                            ? isDark
+                              ? option.activeClass
+                              : `${option.activeLightClass} bg-white`
+                            : isDark
+                              ? `bg-slate-900 text-slate-200 border-slate-700 ${option.inactiveHoverClass}`
+                              : `bg-white text-slate-700 border-emerald-100 shadow-[0_8px_24px_rgba(15,23,42,0.06)] ${option.inactiveLightHoverClass}`
+                        }`}
+                      >
+                        <img
+                          src={option.icon}
+                          alt={label}
+                          className="h-6 w-6 rounded"
+                        />
+                        {label}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+              {isCard && (
+                <p
+                  className={`mt-2 text-xs ${
+                    isDark ? "text-indigo-300" : "text-indigo-600"
+                  }`}
+                >
+                  {t.cardMinTip(cardMin)}
+                </p>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <label
+                className={`mb-3 block text-sm font-medium ${
+                  isDark ? "text-slate-300" : "text-slate-700"
+                }`}
+              >
                 {t.amount}
               </label>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {QUICK_AMOUNTS.map((val) => (
+                {quickAmounts.map((val) => (
                   <button
                     key={val}
                     onClick={() => handleAmountChange(val)}
@@ -220,54 +307,13 @@ export default function Pay() {
                   type="number"
                   value={amount}
                   onChange={(e) => handleAmountChange(e.target.value)}
-                  placeholder={`${minAmount} - ${maxAmount}`}
+                  placeholder={`${effectiveMin} - ${maxAmount}`}
                   className={`w-full rounded-2xl border py-3 pr-4 pl-10 text-lg transition-colors focus:outline-none focus:ring-4 ${
                     isDark
                       ? "border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:ring-sky-500/10"
                       : "border-emerald-100 bg-white text-slate-900 placeholder-slate-400 focus:border-sky-400 focus:ring-sky-500/10"
                   }`}
                 />
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label
-                className={`mb-3 block text-sm font-medium ${
-                  isDark ? "text-slate-300" : "text-slate-700"
-                }`}
-              >
-                {t.paymentType}
-              </label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(enabledTypes as Array<keyof typeof PAYMENT_TYPE_CONFIG>).map(
-                  (type) => {
-                    const option = PAYMENT_TYPE_CONFIG[type];
-                    const label = option.getLabel(t);
-
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setPaymentType(type)}
-                        className={`flex items-center justify-center gap-3 rounded-2xl border px-4 py-3 font-medium transition-all ${
-                          paymentType === type
-                            ? isDark
-                              ? option.activeClass
-                              : `${option.activeLightClass} bg-white`
-                            : isDark
-                              ? `bg-slate-900 text-slate-200 border-slate-700 ${option.inactiveHoverClass}`
-                              : `bg-white text-slate-700 border-emerald-100 shadow-[0_8px_24px_rgba(15,23,42,0.06)] ${option.inactiveLightHoverClass}`
-                        }`}
-                      >
-                        <img
-                          src={option.icon}
-                          alt={label}
-                          className="h-6 w-6 rounded"
-                        />
-                        {label}
-                      </button>
-                    );
-                  },
-                )}
               </div>
             </div>
 
@@ -301,7 +347,7 @@ export default function Pay() {
         </div>
       </div>
 
-      {showQR && (
+      {showQR && paymentType !== "card" && (
         <QRCodeModal
           orderNo={orderNo}
           qrCodeUrl={qrCodeUrl}
@@ -311,6 +357,18 @@ export default function Pay() {
           isDark={isDark}
           lang={appLang}
           onClose={() => setShowQR(false)}
+        />
+      )}
+
+      {showCard && config?.publishable_key && clientSecret && (
+        <CardCheckout
+          publishableKey={config.publishable_key}
+          clientSecret={clientSecret}
+          orderNo={orderNo}
+          amount={Number(amount)}
+          isDark={isDark}
+          lang={appLang}
+          onClose={() => setShowCard(false)}
         />
       )}
     </div>

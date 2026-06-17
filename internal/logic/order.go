@@ -23,16 +23,18 @@ type OrderLogic struct {
 type CreateOrderRequest struct {
 	Token       string  `json:"token"`
 	Amount      float64 `json:"amount"`
-	PaymentType string  `json:"payment_type"` // wxpay / alipay
+	PaymentType string  `json:"payment_type"` // wxpay / alipay / card
+	Lang        string  `json:"lang"`         // zh / en，信用卡 Checkout 页面语言
 }
 
 type CreateOrderResponse struct {
-	OrderNo   string  `json:"order_no"`
-	Amount    float64 `json:"amount"`
-	Status    string  `json:"status"`
-	QRCodeURL string  `json:"qr_code_url"`
-	PayURL    string  `json:"pay_url"`
-	ExpiresAt string  `json:"expires_at"`
+	OrderNo      string  `json:"order_no"`
+	Amount       float64 `json:"amount"`
+	Status       string  `json:"status"`
+	QRCodeURL    string  `json:"qr_code_url"`
+	PayURL       string  `json:"pay_url"`
+	ClientSecret string  `json:"client_secret,omitempty"` // 信用卡内嵌 Checkout 用
+	ExpiresAt    string  `json:"expires_at"`
 }
 
 func NewOrderLogic(cfg *config.Config, orderRepo *repo.OrderRepo, sub2apiClient *sub2api.Client, rechargeLogic *RechargeLogic) *OrderLogic {
@@ -89,15 +91,19 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
-	// 2. Validate amount
-	if req.Amount < l.cfg.Billing.MinAmount || req.Amount > l.cfg.Billing.MaxAmount {
-		return nil, fmt.Errorf("amount must be between %.2f and %.2f", l.cfg.Billing.MinAmount, l.cfg.Billing.MaxAmount)
+	// 2. Validate payment type
+	payType := payment.PaymentType(req.PaymentType)
+	if payType != payment.PaymentTypeWxpay && payType != payment.PaymentTypeAlipay && payType != payment.PaymentTypeCard {
+		return nil, fmt.Errorf("unsupported payment type: %s", req.PaymentType)
 	}
 
-	// 3. Validate payment type
-	payType := payment.PaymentType(req.PaymentType)
-	if payType != payment.PaymentTypeWxpay && payType != payment.PaymentTypeAlipay {
-		return nil, fmt.Errorf("unsupported payment type: %s", req.PaymentType)
+	// 3. Validate amount（信用卡使用独立下限）
+	minAmount := l.cfg.Billing.MinAmount
+	if payType == payment.PaymentTypeCard {
+		minAmount = l.cfg.Billing.CardMinAmount
+	}
+	if req.Amount < minAmount || req.Amount > l.cfg.Billing.MaxAmount {
+		return nil, fmt.Errorf("amount must be between %.2f and %.2f", minAmount, l.cfg.Billing.MaxAmount)
 	}
 
 	// 4. Get active payment provider
@@ -109,11 +115,16 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 
 	// 6. Create payment via provider
 	amountStr := fmt.Sprintf("%.2f", req.Amount)
+	locale := "auto"
+	if req.Lang == "zh" || req.Lang == "en" {
+		locale = req.Lang
+	}
 	payResp, err := provider.CreatePayment(context.TODO(), payment.CreatePaymentRequest{
 		OrderNo:     orderNo,
 		Amount:      amountStr,
 		Subject:     "VIP会员",
 		PaymentType: payType,
+		Locale:      locale,
 	})
 	if err != nil {
 		log.Printf("[order] payment provider error: %v", err)
@@ -141,12 +152,13 @@ func (l *OrderLogic) CreateOrder(req CreateOrderRequest) (*CreateOrderResponse, 
 	log.Printf("[order] created: no=%s, user=%d, amount=%.2f, provider=%s", orderNo, user.ID, req.Amount, provider.Name())
 
 	return &CreateOrderResponse{
-		OrderNo:   orderNo,
-		Amount:    req.Amount,
-		Status:    string(model.OrderStatusPending),
-		QRCodeURL: payResp.QRCodeURL,
-		PayURL:    payResp.PayURL,
-		ExpiresAt: expiresAt.Format(time.RFC3339),
+		OrderNo:      orderNo,
+		Amount:       req.Amount,
+		Status:       string(model.OrderStatusPending),
+		QRCodeURL:    payResp.QRCodeURL,
+		PayURL:       payResp.PayURL,
+		ClientSecret: payResp.ClientSecret,
+		ExpiresAt:    expiresAt.Format(time.RFC3339),
 	}, nil
 }
 

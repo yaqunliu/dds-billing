@@ -46,6 +46,7 @@ type StripeConfig struct {
 	NotifyURL      string `yaml:"notify_url"`
 	SuccessURL     string `yaml:"success_url"`
 	CancelURL      string `yaml:"cancel_url"`
+	CardCurrency   string `yaml:"card_currency"` // 信用卡计价币种，默认 cny
 }
 
 type Sub2APIConfig struct {
@@ -56,6 +57,7 @@ type Sub2APIConfig struct {
 type BillingConfig struct {
 	MinAmount           float64 `yaml:"min_amount"`
 	MaxAmount           float64 `yaml:"max_amount"`
+	CardMinAmount       float64 `yaml:"card_min_amount"` // 信用卡最低起充，默认 200
 	OrderTimeoutMinutes int     `yaml:"order_timeout_minutes"`
 }
 
@@ -82,6 +84,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Billing.OrderTimeoutMinutes == 0 {
 		cfg.Billing.OrderTimeoutMinutes = 5
+	}
+	if cfg.Stripe.CardCurrency == "" {
+		cfg.Stripe.CardCurrency = "cny"
+	}
+	if cfg.Billing.CardMinAmount == 0 {
+		cfg.Billing.CardMinAmount = 200
 	}
 
 	return &cfg, nil
