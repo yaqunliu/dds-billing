@@ -62,7 +62,7 @@ export default function Pay() {
     Number(amount) >= effectiveMin &&
     Number(amount) <= maxAmount;
 
-  const policyItems = t.policyItems(baseMin);
+  const policySections = t.policySections(baseMin, cardMin);
 
   const handleAmountChange = (val: number | string) => {
     setAmount(val);
@@ -160,12 +160,32 @@ export default function Pay() {
           </div>
 
           <div
-            className={`space-y-3 text-sm leading-7 sm:text-base ${
+            className={`space-y-4 text-sm leading-7 sm:text-base ${
               isDark ? "text-slate-300" : "text-slate-700"
             }`}
           >
-            {policyItems.map((item) => (
-              <p key={item}>{item}</p>
+            {policySections.map((section, idx) => (
+              <div key={section.heading ?? idx} className="space-y-1">
+                {section.heading && (
+                  <p
+                    className={`font-semibold ${
+                      isDark ? "text-slate-100" : "text-slate-900"
+                    }`}
+                  >
+                    {section.heading}
+                  </p>
+                )}
+                {section.lines?.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+                {section.bullets && (
+                  <ul className="list-disc space-y-1 pl-5">
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ))}
           </div>
         </div>

@@ -19,6 +19,12 @@ export const STATUS_LABELS: Record<AppLang, Record<string, string>> = {
   },
 };
 
+export type PolicySection = {
+  heading?: string;
+  lines?: string[];
+  bullets?: string[];
+};
+
 type PayMessages = {
   title: string;
   amount: string;
@@ -38,7 +44,7 @@ type PayMessages = {
   amountRange: (min: number, max: number) => string;
   policyTitle: string;
   policySubtitle: string;
-  policyItems: (minAmount: number) => string[];
+  policySections: (baseMin: number, cardMin: number) => PolicySection[];
 };
 
 export const PAY_MESSAGES = {
@@ -61,11 +67,50 @@ export const PAY_MESSAGES = {
     amountRange: (min: number, max: number) =>
       `请输入 ${min} - ${max} 之间的金额`,
     policyTitle: "购买规则说明",
-    policySubtitle: "充值/退款政策",
-    policyItems: (minAmount: number) => [
-      `充值最低 ${minAmount} 元，按 1 元 = 1 美元到账，通常即时到账（最长 5 分钟）。若出现异常请联系管理员。`,
-      "退款金额 = 充值金额 - 已消费 - 5% * 充值金额（第三方支付平台手续费）。退款将原路返回，1 - 3 个工作日到账。",
-      "充值即视为同意本政策，解释权归平台所有。",
+    policySubtitle: "充值与退款说明",
+    policySections: (baseMin: number, cardMin: number) => [
+      {
+        heading: "支持方式",
+        bullets: ["微信", "支付宝", "信用卡（Stripe）"],
+      },
+      {
+        heading: "微信 / 支付宝",
+        lines: [`最低充值 ${baseMin} 元`],
+      },
+      {
+        heading: "信用卡（Stripe）",
+        lines: [`最低充值 ${cardMin} 元`],
+      },
+      {
+        lines: [
+          "微信 / 支付宝按 1 元 = 1 平台代币 到账；信用卡按 Stripe 实际美元结算，到账金额以充值时选择的平台代币数量为准。",
+        ],
+      },
+      {
+        heading: "到账说明",
+        lines: [
+          "通常即时到账（最长不超过 5 分钟）。",
+          "如遇到账异常，请联系管理员协助处理。",
+        ],
+      },
+      {
+        heading: "退款规则",
+        lines: [
+          "退款金额 = 充值金额 − 已消费金额 − 支付手续费",
+          "手续费 = 充值金额 × 5%",
+        ],
+        bullets: [
+          "退款将原路退回至支付账户。",
+          "到账时间通常为 1–3 个工作日。",
+        ],
+      },
+      {
+        heading: "政策说明",
+        lines: [
+          "完成充值即视为您已阅读并同意本充值与退款政策。",
+          "本平台保留对本政策的最终解释权。",
+        ],
+      },
     ],
   },
   en: {
@@ -87,11 +132,50 @@ export const PAY_MESSAGES = {
     amountRange: (min: number, max: number) =>
       `Please enter an amount between ${min} and ${max}`,
     policyTitle: "Purchase Rules",
-    policySubtitle: "Recharge / Refund Policy",
-    policyItems: (minAmount: number) => [
-      `The minimum recharge amount is ¥${minAmount}. Balance is credited at a rate of ¥1 = $1, usually instantly and within 5 minutes at most. Contact the administrator if anything looks abnormal.`,
-      "Refund amount = recharge amount - consumed amount - 5% of the recharge amount (third-party payment platform fee). Refunds are returned to the original payment method within 1-3 business days.",
-      "By recharging, you are deemed to have agreed to this policy. Final interpretation belongs to the platform.",
+    policySubtitle: "Recharge & Refund Policy",
+    policySections: (baseMin: number, cardMin: number) => [
+      {
+        heading: "Supported Methods",
+        bullets: ["WeChat Pay", "Alipay", "Credit Card (Stripe)"],
+      },
+      {
+        heading: "WeChat / Alipay",
+        lines: [`Minimum recharge ¥${baseMin}`],
+      },
+      {
+        heading: "Credit Card (Stripe)",
+        lines: [`Minimum recharge ¥${cardMin}`],
+      },
+      {
+        lines: [
+          "WeChat / Alipay is credited at ¥1 = 1 platform token; credit card is settled in actual USD via Stripe, and the credited amount is based on the number of platform tokens selected at recharge.",
+        ],
+      },
+      {
+        heading: "Crediting",
+        lines: [
+          "Usually credited instantly (within 5 minutes at most).",
+          "If crediting appears abnormal, please contact the administrator for assistance.",
+        ],
+      },
+      {
+        heading: "Refund Rules",
+        lines: [
+          "Refund amount = recharge amount − consumed amount − payment processing fee",
+          "Processing fee = recharge amount × 5%",
+        ],
+        bullets: [
+          "Refunds are returned to the original payment account.",
+          "Crediting usually takes 1–3 business days.",
+        ],
+      },
+      {
+        heading: "Policy Notice",
+        lines: [
+          "Completing a recharge means you have read and agreed to this Recharge & Refund Policy.",
+          "The platform reserves the right of final interpretation of this policy.",
+        ],
+      },
     ],
   },
 } satisfies Record<AppLang, PayMessages>;
